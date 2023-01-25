@@ -1,0 +1,11 @@
+{
+	"template": "C:\\Users\\ecero\\OneDrive\\Desktop\\Github\\gng\\dataset\\template_real",
+	"train_positive": "C:\\Users\\ecero\\OneDrive\\Desktop\\Github\\gng\\dataset\\train_real",
+	"train_negative": "C:\\Users\\ecero\\OneDrive\\Desktop\\Github\\gng\\dataset\\train_sint",
+	"val_positive": "C:\\Users\\ecero\\OneDrive\\Desktop\\Github\\gng\\dataset\\validation_real",
+	"val_negative": "C:\\Users\\ecero\\OneDrive\\Desktop\\Github\\gng\\dataset\\validation_sint",
+	"test_positive": "C:\\Users\\ecero\\OneDrive\\Desktop\\Github\\gng\\dataset\\test_real",
+	"test_negative":  "C:\\Users\\ecero\\OneDrive\\Desktop\\Github\\gng\\dataset\\test_sint",
+	"model_savedir":  "C:\\Users\\ecero\\OneDrive\\Desktop\\Github\\gng\\trained_models",
+	"model_tag": "First"
+}

@@ -5,11 +5,12 @@ import os
 import random
 import shutil
 
-random.seed(45) # nice seeds for template: 45, 48, 49
+random.seed(46) # nice seeds for template_real: 45, 48, 49
+                # nice seeds for template_sint: 46
 
 # specify the source folder
-source_folder = os.path.join("dataset", "Real_run_4K")
-tag = "_real"
+source_folder = os.path.join("dataset", "Sint_run_4K")
+tag = "_sint"
 # specify the destination folders
 
 template_dir = os.path.join("Dataset","template" + tag)

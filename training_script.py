@@ -32,6 +32,18 @@ from sklearn.metrics import confusion_matrix
 from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession
 
+def siamese_input_gen(l_input_all, r_input_all, label_all, n=1): 
+    
+    while True:
+        l = len(l_input_all)
+        
+        for ndx in range(0, l, n):
+            
+            l_input = l_input_all[ndx:min(ndx + n, l)]
+            r_input = r_input_all[ndx:min(ndx + n, l)]
+            labels = label_all[ndx:min(ndx + n, l)]
+            yield ([l_input, r_input], labels)
+            
 
 def coupler(positive_image_dir, negative_image_dir, template_img, new_dim):
     data_positive = []
@@ -206,7 +218,7 @@ def siamese_nw(input_shape):
     #inspired by VGG16 from https://towardsdatascience.com/step-by-step-vgg16-implementation-in-keras-for-beginners-a833c686ae6c
     model = Sequential()
     
-    model.add(Conv2D(input_shape=(112,112,3),filters=64,kernel_size=(3,3),padding="same", activation=activation_inner))
+    model.add(Conv2D(input_shape=input_shape,filters=64,kernel_size=(3,3),padding="same", activation=activation_inner))
     model.add(Conv2D(filters=64,kernel_size=(3,3),padding="same", activation=activation_inner))
     
     if norm_1 == True:
@@ -422,10 +434,14 @@ model.compile(loss= loss, optimizer=opt, metrics= metric)
 
 #training model
 if (val_positive_dir != "None") or (val_negative_dir != "None"):
-    history = model.fit([l_input, r_input], label_train, validation_data = ([l_input_val, r_input_val], label_val), epochs = epochs,
+    # history = model.fit([l_input, r_input], label_train, validation_data = ([l_input_val, r_input_val], label_val), epochs = epochs,
+    #                     batch_size = batch_size, callbacks=cbs)
+    history = model.fit(siamese_input_gen(l_input, r_input, label_train, n= 100), validation_data = siamese_input_gen(l_input_val, r_input_val, label_val, n= 100), epochs = epochs,
                         batch_size = batch_size, callbacks=cbs)
 else:
-    history = model.fit([l_input, r_input], label_train, epochs = epochs,
+    # history = model.fit([l_input, r_input], label_train, epochs = epochs,
+    #                     batch_size = batch_size, callbacks=cbs)
+    history = model.fit(siamese_input_gen(l_input, r_input, label_train, n= 100), epochs = epochs,
                         batch_size = batch_size, callbacks=cbs)
 
 #save model
