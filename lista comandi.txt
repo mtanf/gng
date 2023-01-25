@@ -1,0 +1,2 @@
+preprocessing
+python mtcnn_preprocessing.py -orig C:\Users\ecero\Desktop\gng\Original_datasets\Sint_Tot_40K -dest C:\Users\ecero\Desktop\gng\Preprocessing_output
