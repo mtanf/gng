@@ -5,7 +5,7 @@ import os
 import random
 import shutil
 
-random.seed(48) # nice seeds for template: 45, 48
+random.seed(45) # nice seeds for template: 45, 48, 49
 
 # specify the source folder
 source_folder = os.path.join("dataset", "Real_run_4K")
