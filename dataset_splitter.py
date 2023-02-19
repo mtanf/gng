@@ -37,8 +37,8 @@ print(f"Numero di file .jpg: {jpg_count}, Numero di file .png: {png_count}")
 img_count = jpg_count + png_count
 
 # specify the number of files to select
-num_template = 40
-num_files_to_select = img_count - 40
+num_template = 10
+num_files_to_select = img_count - num_template
 num_train = int(num_files_to_select * 0.7)
 num_valid = int((num_files_to_select - num_train) * 0.33)
 num_test = num_files_to_select - num_train - num_valid

@@ -101,7 +101,7 @@ def coupler(positive_image_dir, negative_image_dir, template_img, new_dim):
     print("Number of same class image pairs = {}, Number of different class image pairs = {}, total sample pairs: {}\n".format(len(same_class_imgs), len(different_class_imgs), len(same_class_imgs) + len(different_class_imgs) ))
     return same_class_imgs, different_class_imgs
 
-def xy_train_creator(same_class_imgs, different_class_imgs, balanced = False):
+def xy_train_creator(same_class_imgs, different_class_imgs, balanced = True):
     #takes the two sets of image couples and merges them
     #note that the training set must be balanced
     #so, i need an equal number of same-class couples and different class couples
@@ -214,12 +214,18 @@ def siamese_nw(input_shape):
     norm_4 = False
     norm_5 = False
     
+    ks_1_dim = 30
+    ks_2_dim = 20
+    ks_1 =(ks_1_dim,ks_1_dim)
+    ks_2 = (ks_2_dim, ks_2_dim)
+    
+    f = 8
     
     #inspired by VGG16 from https://towardsdatascience.com/step-by-step-vgg16-implementation-in-keras-for-beginners-a833c686ae6c
     model = Sequential()
     
-    model.add(Conv2D(input_shape=input_shape,filters=64,kernel_size=(3,3),padding="same", activation=activation_inner))
-    model.add(Conv2D(filters=64,kernel_size=(3,3),padding="same", activation=activation_inner))
+    model.add(Conv2D(input_shape=input_shape,filters=f,kernel_size=ks_1,padding="same", activation=activation_inner))
+    model.add(Conv2D(filters=f,kernel_size=ks_2,padding="same", activation=activation_inner))
     
     if norm_1 == True:
         model.add(BatchNormalization())
@@ -230,8 +236,8 @@ def siamese_nw(input_shape):
         
         model.add(Dropout(0.1))
     
-    model.add(Conv2D(filters=128, kernel_size=(3,3), padding="same", activation=activation_inner))
-    model.add(Conv2D(filters=128, kernel_size=(3,3), padding="same", activation=activation_inner))
+    model.add(Conv2D(filters=f*2, kernel_size=ks_1, padding="same", activation=activation_inner))
+    model.add(Conv2D(filters=f*2, kernel_size=ks_2, padding="same", activation=activation_inner))
     
     if norm_2 == True:
         model.add(BatchNormalization())
@@ -284,7 +290,7 @@ def siamese_nw(input_shape):
     
     model.add(Flatten())
         
-    model.add(Dense(units = 1000, activation=activation_fc))
+    #model.add(Dense(units = 1000, activation=activation_fc))
     
     encoded_l = model(left_input)
     encoded_r = model(right_input)
@@ -315,7 +321,7 @@ template_img = dataset_dict["template"]
 mtag = dataset_dict["model_tag"]
 
 #usage parameters
-new_dim = 128
+new_dim = 250
 input_dim = (new_dim, new_dim, 3)
 
 #run parameters
@@ -326,7 +332,7 @@ reload_top = False
 #training parameters
 l_r = 5e-4
 opt = Nadam(lr = l_r)
-batch_size = 128
+batch_size = 8
 epochs = 20
 loss = "hinge"
 metric = ["accuracy"]
@@ -389,30 +395,6 @@ if (val_positive_dir != "None") or (val_negative_dir != "None"):
     r_input_val = np.squeeze(np.array(r_input_val))
     label_val = np.squeeze(np.array(label_val))
     
-    
-print("Test set: ")
-test_same_class_imgs, test_different_class_imgs = coupler(test_positive_dir, test_negative_dir, template_img, new_dim)
-x_t, y_t =  xy_train_creator(test_same_class_imgs, test_different_class_imgs)
-
-l_input_test = []
-r_input_test = []
-label_test  =[]
-length_test = len(x_t)
-for i in range(length_test):
-    
-    r_index = random.randint(0, len(x_t)-1)
-    
-    item = x_t.pop(r_index)
-    label = y_t.pop(r_index)
-    
-    l_input_test.append(item[0])
-    r_input_test.append(item[1])
-    label_test.append(label)
-
-l_input_test = np.squeeze(np.array(l_input_test))
-r_input_test = np.squeeze(np.array(r_input_test))
-label_test = np.squeeze(np.array(label_test))
-
 print("Done, starting learning.\n")
 #defining a simple early stopping callback and a checkpoint one
 es = EarlyStopping( monitor = "val_loss", mode = "min", verbose = 1, patience = 2)
@@ -446,6 +428,33 @@ else:
 
 #save model
 model.save(saved_model_name)
+
+#free memory from training and validation data and load test
+del same_class_imgs, different_class_imgs, val_same_class_imgs, val_different_class_imgs, x,y,x_v,y_v
+del l_input, r_input, l_input_val, r_input_val, label, label_val
+
+print("Test set: ")
+test_same_class_imgs, test_different_class_imgs = coupler(test_positive_dir, test_negative_dir, template_img, new_dim)
+x_t, y_t =  xy_train_creator(test_same_class_imgs, test_different_class_imgs)
+
+l_input_test = []
+r_input_test = []
+label_test  =[]
+length_test = len(x_t)
+for i in range(length_test):
+    
+    r_index = random.randint(0, len(x_t)-1)
+    
+    item = x_t.pop(r_index)
+    label = y_t.pop(r_index)
+    
+    l_input_test.append(item[0])
+    r_input_test.append(item[1])
+    label_test.append(label)
+
+l_input_test = np.squeeze(np.array(l_input_test))
+r_input_test = np.squeeze(np.array(r_input_test))
+label_test = np.squeeze(np.array(label_test))
 
 #shows how the loss and accuracy evolved during training on train and validation set
 plt.plot(history.history['accuracy'])

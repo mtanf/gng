@@ -1,0 +1,16 @@
+{
+	"template": "C:\\Users\\ecero\\Documents\\Github\\gng\\dataset\\template_real",
+	"train_positive": "C:\\Users\\ecero\\Documents\\Github\\gng\\dataset\\train_real",
+	"train_negative": "C:\\Users\\ecero\\Documents\\Github\\gng\\dataset\\train_sint",
+	"val_positive": "C:\\Users\\ecero\\Documents\\Github\\gng\\dataset\\validation_real",
+	"val_negative": "C:\\Users\\ecero\\Documents\\Github\\gng\\dataset\\validation_sint",
+	"test_positive": "C:\\Users\\ecero\\Documents\\Github\\gng\\dataset\\test_real",
+	"test_negative":  "C:\\Users\\ecero\\Documents\\Github\\gng\\dataset\\test_sint",
+	"model_savedir":  "C:\\Users\\ecero\\Documents\\Github\\gng\\trained_models",
+	"model_tag": "First_tuckerDec",
+	"hosvd_savefolder": "C:\\Users\\ecero\\Documents\\Github\\gng\\hosvd_results\\",
+	"resize_img_dim": 500,
+	"compression": 3,
+	"hosvd_channels": 2,
+	"force_hosvd": "True"
+}
