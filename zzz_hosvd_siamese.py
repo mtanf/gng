@@ -7,7 +7,6 @@ Created on Sun Feb 19 16:39:38 2023
 
 
 import numpy as np
-import tensorly
 import cv2
 import os
 import tensorly as tl
