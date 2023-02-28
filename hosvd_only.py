@@ -3,6 +3,8 @@ import cv2
 import os
 import tensorly as tl
 from keras.utils import normalize
+import json
+import argparse as ap
 
 
 def load_images_from_folder(folder, new_img_dim):
@@ -57,3 +59,35 @@ def load_matrices(folder_path):
         reloaded_matrices.append(np.load(os.path.join(folder_path, filename), allow_pickle=False))
 
     return reloaded_matrices
+
+
+def str_to_bool(string, argname):
+    if isinstance(string, bool):  # check if input is already a boolean
+        return string
+    else:
+        lowercase_string = string.lower()  # convert to lowercase to check for less words
+        if lowercase_string in ["true", "yes", "y", "t", "whynot", "1", "ok"]:
+            return True
+        elif lowercase_string in ["false", "no", "n", "f", "nope", "0" "not"]:
+            return False
+        else:
+            raise ap.ArgumentTypeError("Boolean value expected for {}".format(argname))
+
+
+parser = ap.ArgumentParser()
+parser.add_argument("-json", "--path_to_json", required=True, help="Path to config json.")
+
+args = vars(parser.parse_args())
+json_path = args["path_to_json"]
+
+with open(json_path) as f:
+    run_params = json.load(f)
+
+force_hosvd = str_to_bool(run_params["force_hosvd"], "Force HOSVD calculation")
+
+real_imgs = run_params["real"]
+generated_imgs = run_params["generated"]
+
+real_list, real_names = load_images_from_folder(real_imgs, 1/run_params["compression"])
+generated_list, generated_names = load_images_from_folder(generated_imgs)
+
