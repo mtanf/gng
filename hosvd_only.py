@@ -85,9 +85,44 @@ with open(json_path) as f:
 
 force_hosvd = str_to_bool(run_params["force_hosvd"], "Force HOSVD calculation")
 
+hosvd_savefolder = run_params["hosvd_savefolder"]
+
+if not os.path.isdir(hosvd_savefolder):
+    force_hosvd = True #savefolder did not exist, hosvd was not calculated/did not complete
+    os.mkdir(hosvd_savefolder)
+
 real_imgs = run_params["real"]
 generated_imgs = run_params["generated"]
 
-real_list, real_names = load_images_from_folder(real_imgs, 1/run_params["compression"])
-generated_list, generated_names = load_images_from_folder(generated_imgs)
+real_hosvd_path = os.path.join(hosvd_savefolder, os.path.basename(real_imgs))
+generated_hosvd_path = os.path.join(hosvd_savefolder, os.path.basename(generated_imgs))
+
+#usage parameters
+img_dim = run_params["resize_img_dim"]
+compression = run_params["compression"]
+hosvd_channels = run_params["hosvd_channels"]
+
+d1 = int(img_dim/compression)
+tucker_rank = [d1,d1,hosvd_channels]
+
+real_list, real_names = load_images_from_folder(real_imgs, img_dim)
+generated_list, generated_names = load_images_from_folder(generated_imgs, img_dim)
+
+print("Peforming HOSVD with Tucker decomposition\nCore tensors will be rescaled with L2 norm")
+print("Real images")
+#decompose
+real_cores = tucker_decomposed_imgs(real_list, tucker_rank)
+#rescale
+real_cores = rescale_cores(real_cores)
+#saving template cores
+save_matrices(real_cores, real_names, real_hosvd_path)
+print("Generated images")
+#decompose
+gen_cores = tucker_decomposed_imgs(generated_list, tucker_rank)
+#rescale
+gen_cores = rescale_cores(gen_cores)
+#saving template cores
+save_matrices(gen_cores, generated_names, generated_hosvd_path)
+
+
 
