@@ -93,7 +93,6 @@ if not os.path.isdir(hosvd_savefolder):
 
 real_imgs = run_params["real"]
 generated_imgs = run_params["generated"]
-
 real_hosvd_path = os.path.join(hosvd_savefolder, os.path.basename(real_imgs))
 generated_hosvd_path = os.path.join(hosvd_savefolder, os.path.basename(generated_imgs))
 
@@ -123,6 +122,3 @@ gen_cores = tucker_decomposed_imgs(generated_list, tucker_rank)
 gen_cores = rescale_cores(gen_cores)
 #saving template cores
 save_matrices(gen_cores, generated_names, generated_hosvd_path)
-
-
-
