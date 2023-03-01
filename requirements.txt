@@ -15,7 +15,8 @@ protobuf<4.21.3
 keras
 tensorly
 tensorflow
-PyQt
+PyQt5
+h5py
 
 # Logging -------------------------------------
 tensorboard>=2.4.1

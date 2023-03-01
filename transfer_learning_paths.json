@@ -1,0 +1,9 @@
+{
+	"generated_compr": "C:\\Users\\ecero\\Documents\\GitHub\\gng\\dataset\\Compressed_imgs\\Sint_run_4K",
+	"real_compr": "C:\\Users\\ecero\\Documents\\GitHub\\gng\\dataset\\Compressed_imgs\\Real_run_4K",
+	"batch_size": 32,
+	"top_model_epochs": 20,
+	"full_model_epochs": 10,
+	"top_model_optimizer_learning_rate": 1e-3,
+	"full_model_optimizer_learning_rate": 1e-5
+}
