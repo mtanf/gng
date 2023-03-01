@@ -5,12 +5,12 @@ import tensorly as tl
 from keras.utils import normalize
 import json
 import argparse as ap
-
+from tqdm import tqdm
 
 def load_images_from_folder(folder, new_img_dim):
     images = []
     filenames = os.listdir(folder)
-    for filename in filenames:
+    for filename in tqdm(filenames, desc="Loaded"):
         # load
         img = cv2.imread(os.path.join(folder, filename))
         # resize
@@ -21,12 +21,15 @@ def load_images_from_folder(folder, new_img_dim):
         # cv2.destroyAllWindows()
         if img is not None:
             images.append(img)
+
     return images, filenames
 
 
 def tucker_decomposed_imgs(img_list, tucker_rank):
     core_imgs = []
-    for img in img_list:
+    print("Tucker decomposition...")
+    for i in tqdm(range(len(img_list)), desc='Decomposed'):
+        img = img_list[i]
         core, factors = tl.decomposition.tucker(img, rank=tucker_rank)
         core_imgs.append(core)
     return core_imgs
@@ -52,13 +55,6 @@ def save_matrices(matrices_list, original_filenames, savepath):
     return
 
 
-def load_matrices(folder_path):
-    reloaded_matrices = []
-    filenames = os.listdir(folder_path)
-    for filename in filenames:
-        reloaded_matrices.append(np.load(os.path.join(folder_path, filename), allow_pickle=False))
-
-    return reloaded_matrices
 
 
 def str_to_bool(string, argname):
@@ -91,10 +87,17 @@ if not os.path.isdir(hosvd_savefolder):
     force_hosvd = True #savefolder did not exist, hosvd was not calculated/did not complete
     os.mkdir(hosvd_savefolder)
 
+
 real_imgs = run_params["real"]
 generated_imgs = run_params["generated"]
 real_hosvd_path = os.path.join(hosvd_savefolder, os.path.basename(real_imgs))
 generated_hosvd_path = os.path.join(hosvd_savefolder, os.path.basename(generated_imgs))
+
+if not os.path.isdir(real_hosvd_path):
+    os.mkdir(real_hosvd_path)
+
+if not os.path.isdir(generated_hosvd_path):
+    os.mkdir(generated_hosvd_path)
 
 #usage parameters
 img_dim = run_params["resize_img_dim"]
@@ -103,8 +106,10 @@ hosvd_channels = run_params["hosvd_channels"]
 
 d1 = int(img_dim/compression)
 tucker_rank = [d1,d1,hosvd_channels]
-
+# tucker_rank = run_params["tucker_rank"]
+print("Loading real images...")
 real_list, real_names = load_images_from_folder(real_imgs, img_dim)
+print("Loading generated images...")
 generated_list, generated_names = load_images_from_folder(generated_imgs, img_dim)
 
 print("Peforming HOSVD with Tucker decomposition\nCore tensors will be rescaled with L2 norm")
