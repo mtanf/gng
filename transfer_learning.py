@@ -98,5 +98,6 @@ print("Training the full model")
 model.fit(x = training_cores, y= training_labels,
           epochs=run_params["full_model_epochs"], batch_size = run_params["batch_size"]) #TODO early stopping
 
+model.evaluate(x=training_cores, y=training_labels, batch_size = run_params["batch_size"])
 #TODO salvare il modello
 
