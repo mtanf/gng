@@ -66,8 +66,13 @@ inputs = keras.Input(shape=input_shape)
 #making sure that base model runs in inference only mode, important for fine-tuning
 x = base_model(inputs, training=False)
 # Convert features of shape `base_model.output_shape[1:]` to vectors
-x = keras.layers.GlobalAveragePooling2D()(x)
+base_model_encoding = keras.layers.GlobalAveragePooling2D()(x)
 # A Dense classifier with a single unit (binary classification)
+x = keras.layers.Dense(960, activation = "relu")(base_model_encoding)
+x = keras.layers.Dense(864, activation = "relu")(x)
+x = keras.layers.Dense(691, activation = "relu")(x)
+x = keras.layers.Dense(483, activation = "relu")(x)
+x = keras.layers.Dense(289, activation = "relu")(x)
 outputs = keras.layers.Dense(1)(x) #TODO implementare un MLP vero
 #defining model
 model = keras.Model(inputs, outputs)
