@@ -9,16 +9,20 @@ random.seed(46) # nice seeds for template_real: 45, 48, 49
                 # nice seeds for template_sint: 46
 
 # specify the source folder
-source_folder = os.path.join("dataset", "Sint_run_4K")
+#source_folder = os.path.join("dataset", "Sint_run_4K")
+source_folder = "F:\\gng_dataset_storage\\Preprocessing_output\\Sint_tot"
 tag = "_sint"
+
 # specify the destination folders
+main_dest_folder = "C:\\Users\\ecero\\Documents\\GitHub\\gng\\dataset"
+#template_dir = os.path.join("Dataset","template" + tag)
 
-template_dir = os.path.join("Dataset","template" + tag)
-train_dir = os.path.join("Dataset","train" + tag)
-valid_dir = os.path.join("Dataset","validation" + tag)
-test_dir = os.path.join("Dataset","test" + tag)
+train_dir = os.path.join(main_dest_folder,"train" + tag)
+valid_dir = os.path.join(main_dest_folder,"validation" + tag)
+test_dir = os.path.join(main_dest_folder,"test" + tag)
 
-destination_folders = [template_dir,train_dir,valid_dir,test_dir]
+#destination_folders = [template_dir,train_dir,valid_dir,test_dir]
+destination_folders = [train_dir,valid_dir,test_dir]
 
 # create non-existing folders and clear previously created ones
 for paths in destination_folders:
@@ -37,17 +41,14 @@ print(f"Numero di file .jpg: {jpg_count}, Numero di file .png: {png_count}")
 img_count = jpg_count + png_count
 
 # specify the number of files to select
-num_template = 10
-num_files_to_select = img_count - num_template
+#♥num_template = 10
+num_files_to_select = img_count
 num_train = int(num_files_to_select * 0.7)
 num_valid = int((num_files_to_select - num_train) * 0.33)
 num_test = num_files_to_select - num_train - num_valid
 
 # get the list of files in the source folder
 files = os.listdir(source_folder)
-
-
-
 
 def mover (selected_files, source_folder, destination_folder,files_list):
     for random_file in selected_files:
@@ -63,14 +64,14 @@ def mover (selected_files, source_folder, destination_folder,files_list):
     files_list = [x for x in files_list if x not in selected_files]
     return files_list
 
-print("n. of template samples:", num_template)
+#print("n. of template samples:", num_template)
 print("n. of train samples:", num_train)
 print("n. of validation samples:", num_valid)
 print("n. of test samples:", num_test)
 
-# randomly select and copy TEMPLATE imgs to the destination folder
-selected_templates = random.sample(files, num_template)
-files = mover(selected_templates,source_folder,template_dir,files)
+# # randomly select and copy TEMPLATE imgs to the destination folder
+# selected_templates = random.sample(files, num_template)
+# files = mover(selected_templates,source_folder,template_dir,files)
 
 # randomly select and copy TRAIN imgs from the remaining ones to the destination folder
 selected_train = random.sample(files, num_train)

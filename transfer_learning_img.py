@@ -15,9 +15,6 @@ from tqdm import tqdm
 import gc
 import cv2
 
-from numba import cuda
-
-
 # gpus = tf.config.list_physical_devices('GPU')
 # if gpus:
 #   # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
@@ -106,11 +103,27 @@ with open(json_path) as f:
 #reload core tensors of images
 print("Loading training images")
 new_img_dim = run_params["new_img_dim"]
-real_imgs, real_labels = load_imgs(run_params["real_imgs"], "Real", new_img_dim = new_img_dim)
-generated_imgs, generated_labels = load_imgs(run_params["generated_imgs"], "Generated", new_img_dim = new_img_dim)
+real_imgs_train, real_labels_train = load_imgs(run_params["real_imgs_train"], "Real", new_img_dim = new_img_dim)
+generated_imgs_train, generated_labels_train = load_imgs(run_params["generated_imgs_train"], "Generated", new_img_dim = new_img_dim)
 
-training_imgs = np.asarray([y for x in [real_imgs, generated_imgs] for y in x])
-training_labels =np.asarray([y for x in [real_labels, generated_labels] for y in x])
+training_imgs = np.asarray([y for x in [real_imgs_train, generated_imgs_train] for y in x])
+training_labels =np.asarray([y for x in [real_labels_train, generated_labels_train] for y in x])
+
+a
+# print("Loading validation images")
+# real_imgs_val, real_labels_val = load_imgs(run_params["real_imgs_val"], "Real", new_img_dim = new_img_dim)
+# generated_imgs_val, generated_labels_val = load_imgs(run_params["generated_imgs_val"], "Generated", new_img_dim = new_img_dim)
+
+# training_imgs_val = np.asarray([y for x in [real_imgs_val, generated_imgs_val] for y in x])
+# training_labels_val =np.asarray([y for x in [real_labels_val, generated_labels_val] for y in x])
+
+
+# print("Loading test images")
+# real_imgs_val, real_labels_val = load_imgs(run_params["real_imgs_val"], "Real", new_img_dim = new_img_dim)
+# generated_imgs_val, generated_labels_val = load_imgs(run_params["generated_imgs_val"], "Generated", new_img_dim = new_img_dim)
+
+training_imgs_val = np.asarray([y for x in [real_imgs_val, generated_imgs_val] for y in x])
+training_labels_val =np.asarray([y for x in [real_labels_val, generated_labels_val] for y in x])
 
 #get input shape
 input_shape = (new_img_dim, new_img_dim, 3)

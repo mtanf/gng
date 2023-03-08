@@ -1,6 +1,6 @@
 {
-	"generated_imgs": "C:\\Users\\ecero\\Documents\\GitHub\\gng\\dataset\\Sint_run_4K",
-	"real_imgs": "C:\\Users\\ecero\\Documents\\GitHub\\gng\\dataset\\Real_run_4K",
+	"generated_imgs_train": "C:\\Users\\ecero\\Documents\\GitHub\\gng\\dataset\\train_real",
+	"real_imgs_train": "C:\\Users\\ecero\\Documents\\GitHub\\gng\\dataset\\train_real",
 	"new_img_dim": 448,
 	"spr_reps": 1,
 	"batch_size": 32,
