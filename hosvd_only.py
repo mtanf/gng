@@ -2,15 +2,15 @@ import numpy as np
 import cv2
 import os
 import tensorly as tl
-from keras.utils import normalize
+import math
 import json
 import argparse as ap
 from tqdm import tqdm
 import tensorflow as tf
 
-def load_images_from_folder(folder, new_img_dim, output_folder, extention = ".jpg"):
+def load_images_from_folder(filenames, folder, new_img_dim, output_folder, extention = ".jpg"):
+    
     images = []
-    filenames = os.listdir(folder)
     #get names of processed files
     processed_filenames = []
     for (dirpath, dirnames, fnames) in os.walk(output_folder):
@@ -83,6 +83,9 @@ def str_to_bool(string, argname):
         else:
             raise ap.ArgumentTypeError("Boolean value expected for {}".format(argname))
 
+def split_list(lst, chunk_size):
+    for i in range(0, len(lst), chunk_size):
+        yield lst[i:i+chunk_size]
 
 parser = ap.ArgumentParser()
 parser.add_argument("-json", "--path_to_json", required=True, help="Path to config json.")
@@ -102,10 +105,10 @@ if not os.path.isdir(hosvd_savefolder):
     os.mkdir(hosvd_savefolder)
 
 
-real_imgs = run_params["real"]
-generated_imgs = run_params["generated"]
-real_hosvd_path = os.path.join(hosvd_savefolder, os.path.basename(real_imgs))
-generated_hosvd_path = os.path.join(hosvd_savefolder, os.path.basename(generated_imgs))
+real_imgs_folder = run_params["real"]
+generated_imgs_folder = run_params["generated"]
+real_hosvd_path = os.path.join(hosvd_savefolder, os.path.basename(real_imgs_folder))
+generated_hosvd_path = os.path.join(hosvd_savefolder, os.path.basename(generated_imgs_folder))
 
 if not os.path.isdir(real_hosvd_path):
     os.mkdir(real_hosvd_path)
@@ -117,27 +120,44 @@ if not os.path.isdir(generated_hosvd_path):
 img_dim = run_params["resize_img_dim"]
 compression = run_params["compression"]
 hosvd_channels = run_params["hosvd_channels"]
+chunk_size = run_params["chunk_size"]
 
 d1 = int(img_dim/compression)
 tucker_rank = [d1,d1,hosvd_channels]
 # tucker_rank = run_params["tucker_rank"]
-print("Loading real images...")
-real_list, real_names = load_images_from_folder(real_imgs, img_dim, real_hosvd_path)
-print("Loading generated images...")
-generated_list, generated_names = load_images_from_folder(generated_imgs, img_dim, generated_hosvd_path)
 
-print("Peforming HOSVD with Tucker decomposition\nCore tensors will be rescaled with L2 norm")
-print("Real images")
-#decompose
-real_cores = tucker_decomposed_imgs(real_list, tucker_rank)
-#rescale
-real_cores = rescale_cores(real_cores)
-#saving template cores
-save_matrices(real_cores, real_names, real_hosvd_path)
-print("Generated images")
-#decompose
-gen_cores = tucker_decomposed_imgs(generated_list, tucker_rank)
-#rescale
-gen_cores = rescale_cores(gen_cores)
-#saving template cores
-save_matrices(gen_cores, generated_names, generated_hosvd_path)
+all_real_filenames = os.listdir(real_imgs_folder)
+all_sint_filenames = os.listdir(generated_imgs_folder)
+
+tot_chunks_real = math.ceil(len(all_real_filenames)/chunk_size)
+tot_chunks_sint = math.ceil(len(all_sint_filenames)/chunk_size)
+
+
+chunk_real_idx = 1
+chunk_sint_idx = 1
+    
+for real_chunk in split_list(all_real_filenames, chunk_size):
+    
+    print("Loading real images for chunk {} out of {}".format(chunk_real_idx, tot_chunks_real))
+    real_list, real_names = load_images_from_folder(real_chunk, real_imgs_folder, img_dim, real_hosvd_path)
+    print("Peforming HOSVD with Tucker decomposition\nCore tensors will be rescaled in range [0-255]")
+    #decompose
+    real_cores = tucker_decomposed_imgs(real_list, tucker_rank)
+    #rescale
+    real_cores = rescale_cores(real_cores)
+    #saving template cores
+    save_matrices(real_cores, real_names, real_hosvd_path)
+    chunk_real_idx += 1
+
+for sint_chunk in split_list(all_sint_filenames, chunk_size):
+    print("Loading sint images for chunk {} out of {}".format(chunk_sint_idx, tot_chunks_sint))
+    generated_list, generated_names = load_images_from_folder(sint_chunk,generated_imgs_folder, img_dim, generated_hosvd_path)
+    print("Peforming HOSVD with Tucker decomposition\nCore tensors will be rescaled in range [0-255]")
+    print("Generated images")
+    #decompose
+    gen_cores = tucker_decomposed_imgs(generated_list, tucker_rank)
+    #rescale
+    gen_cores = rescale_cores(gen_cores)
+    #saving template cores
+    save_matrices(gen_cores, generated_names, generated_hosvd_path)
+    chunk_sint_idx += 1
