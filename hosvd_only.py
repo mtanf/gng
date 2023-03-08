@@ -65,7 +65,6 @@ def save_matrices(matrices_list, original_filenames, savepath):
         # remove original file extension from filename
         orig_name = orig_name.split(".")[0]
         new_name = orig_name + "_HOSVD_Core"
-        print(os.path.join(savepath, new_name))
         np.save(os.path.join(savepath, new_name), item, allow_pickle=False)
     return
 
