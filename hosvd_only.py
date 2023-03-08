@@ -8,21 +8,30 @@ import argparse as ap
 from tqdm import tqdm
 import tensorflow as tf
 
-def load_images_from_folder(folder, new_img_dim):
+def load_images_from_folder(folder, new_img_dim, output_folder, extention = ".jpg"):
     images = []
     filenames = os.listdir(folder)
+    #get names of processed files
+    processed_filenames = []
+    for (dirpath, dirnames, fnames) in os.walk(output_folder):
+        processed_filenames.extend(fnames)
+        break
+    #remove appendix "_HOSVD_core.npy"
+    processed_filenames = [x.split("_HOSVD_Core.npy")[0] + extention for x in processed_filenames]
+    filenames = [x for x in filenames if x not in processed_filenames]
+    
     for filename in tqdm(filenames, desc="Loaded"):
-        # load
-        img = cv2.imread(os.path.join(folder, filename))
-        # resize
-        img = cv2.resize(img, (new_img_dim, new_img_dim))
-        # #show
-        # cv2.imshow("img", img)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
-        if img is not None:
-            images.append(img)
-
+            # load
+            img = cv2.imread(os.path.join(folder, filename))
+            # resize
+            img = cv2.resize(img, (new_img_dim, new_img_dim))
+            # #show
+            # cv2.imshow("img", img)
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+            if img is not None:
+                images.append(img)
+   
     return images, filenames
 
 
@@ -41,7 +50,7 @@ def rescale_cores(core_list):
     
     for tensor in core_list:
         #rescale the tensor in the 0-1 range
-        tensor = tf.div(tf.subtract(tensor, tf.reduce_min(tensor)), tf.subtract(tf.reduce_max(tensor),tf.reduce_min(tensor)))
+        tensor = tf.truediv(tf.subtract(tensor, tf.reduce_min(tensor)), tf.subtract(tf.reduce_max(tensor),tf.reduce_min(tensor)))
         #rescale to the 0-255 range (mobilenet expects data in the 0-255 range)
         tensor = tf.multiply(tensor, 255)
         rescaled_cores.append(tensor)
@@ -56,6 +65,7 @@ def save_matrices(matrices_list, original_filenames, savepath):
         # remove original file extension from filename
         orig_name = orig_name.split(".")[0]
         new_name = orig_name + "_HOSVD_Core"
+        print(os.path.join(savepath, new_name))
         np.save(os.path.join(savepath, new_name), item, allow_pickle=False)
     return
 
@@ -113,9 +123,9 @@ d1 = int(img_dim/compression)
 tucker_rank = [d1,d1,hosvd_channels]
 # tucker_rank = run_params["tucker_rank"]
 print("Loading real images...")
-real_list, real_names = load_images_from_folder(real_imgs, img_dim)
+real_list, real_names = load_images_from_folder(real_imgs, img_dim, real_hosvd_path)
 print("Loading generated images...")
-generated_list, generated_names = load_images_from_folder(generated_imgs, img_dim)
+generated_list, generated_names = load_images_from_folder(generated_imgs, img_dim, generated_hosvd_path)
 
 print("Peforming HOSVD with Tucker decomposition\nCore tensors will be rescaled with L2 norm")
 print("Real images")
