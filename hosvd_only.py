@@ -6,6 +6,7 @@ from keras.utils import normalize
 import json
 import argparse as ap
 from tqdm import tqdm
+import tensorflow as tf
 
 def load_images_from_folder(folder, new_img_dim):
     images = []
@@ -37,9 +38,13 @@ def tucker_decomposed_imgs(img_list, tucker_rank):
 
 def rescale_cores(core_list):
     rescaled_cores = []
-    for item in core_list:
-        scaled = normalize(item)
-        rescaled_cores.append(scaled)
+    
+    for tensor in core_list:
+        #rescale the tensor in the 0-1 range
+        tensor = tf.div(tf.subtract(tensor, tf.reduce_min(tensor)), tf.subtract(tf.reduce_max(tensor),tf.reduce_min(tensor)))
+        #rescale to the 0-255 range (mobilenet expects data in the 0-255 range)
+        tensor = tf.multiply(tensor, 255)
+        rescaled_cores.append(tensor)
     return rescaled_cores
 
 

@@ -1,0 +1,11 @@
+{
+	"generated_imgs": "C:\\Users\\ecero\\Documents\\GitHub\\gng\\dataset\\Sint_run_4K",
+	"real_imgs": "C:\\Users\\ecero\\Documents\\GitHub\\gng\\dataset\\Real_run_4K",
+	"new_img_dim": 448,
+	"spr_reps": 1,
+	"batch_size": 32,
+	"top_model_epochs": 30,
+	"full_model_epochs": 20,
+	"top_model_optimizer_learning_rate": 1e-3,
+	"full_model_optimizer_learning_rate": 1e-3
+}

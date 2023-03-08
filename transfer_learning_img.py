@@ -13,13 +13,31 @@ import tensorflow as tf
 from tensorflow import keras
 from tqdm import tqdm
 import gc
+import cv2
+
+from numba import cuda
+
+
+# gpus = tf.config.list_physical_devices('GPU')
+# if gpus:
+#   # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
+#   try:
+#     tf.config.set_logical_device_configuration(
+#         gpus[0],
+#         [tf.config.LogicalDeviceConfiguration(memory_limit=4096)])
+#     logical_gpus = tf.config.list_logical_devices('GPU')
+#     print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+#   except RuntimeError as e:
+#     # Virtual devices must be set before GPUs have been initialized
+#     print(e)
+
 
 def get_compiled_model(input_shape, trainable_base = False, lr = 1e-3):
     #instantiate a base model with pre-trained weight
     base_model = keras.applications.MobileNetV3Large(input_shape = input_shape,
                                                      weights="imagenet",
                                                      include_top=False, #non include l'MLP con cui fanno prediction su imagenet
-                                                     include_preprocessing=False) #preprocessing disabilitato ma la rete si aspetta tensori con valori nel range [0-255] #TODO forse possiamo non riscalare a mano l'HOSVD?
+                                                     include_preprocessing=True) #preprocessing disabilitato ma la rete si aspetta tensori con valori nel range [0-255] #TODO forse possiamo non riscalare a mano l'HOSVD?
 
     if trainable_base:
         #unfreeze base model
@@ -44,9 +62,9 @@ def get_compiled_model(input_shape, trainable_base = False, lr = 1e-3):
 
     x = dense1(base_model_encoding)
     x = dense2(x)
-    x = dense3(x)
-    x = dense4(x)
-    x = dense5(x)
+    # x = dense3(x)
+    # x = dense4(x)
+    # x = dense5(x)
     outputs = keras.layers.Dense(1)(x)
     #outputs = keras.layers.Dense(1)(base_model_encoding)
 
@@ -58,12 +76,14 @@ def get_compiled_model(input_shape, trainable_base = False, lr = 1e-3):
                   metrics=[keras.metrics.BinaryAccuracy()])
     return model
 
-def load_matrices(folder_path, input_label):
-    reloaded_matrices = []
+def load_imgs(folder_path, input_label, new_img_dim = 448):
+    loaded_imgs = []
     filenames = os.listdir(folder_path)
     label_list = []
     for filename in tqdm(filenames, desc="Loaded"):
-        reloaded_matrices.append(np.load(os.path.join(folder_path, filename), allow_pickle=False))
+        img = cv2.imread(os.path.join(folder_path, filename))
+        img = cv2.resize(img, (new_img_dim, new_img_dim))
+        loaded_imgs.append(img)
         if input_label == "Real":
             label_list.append(1)
         elif input_label == "Generated":
@@ -72,7 +92,7 @@ def load_matrices(folder_path, input_label):
             print("Wrong label specified. Exiting")
             exit()
 
-    return reloaded_matrices, label_list
+    return loaded_imgs, label_list
 
 parser = ap.ArgumentParser()
 parser.add_argument("-json", "--path_to_json", required=True, help="Path to config json.")
@@ -84,15 +104,16 @@ with open(json_path) as f:
     run_params = json.load(f)
     
 #reload core tensors of images
-print("Loading training tensor cores")
-real_cores, real_labels = load_matrices(run_params["real_compr"], "Real")
-generated_cores, generated_labels = load_matrices(run_params["generated_compr"], "Generated")
+print("Loading training images")
+new_img_dim = run_params["new_img_dim"]
+real_imgs, real_labels = load_imgs(run_params["real_imgs"], "Real", new_img_dim = new_img_dim)
+generated_imgs, generated_labels = load_imgs(run_params["generated_imgs"], "Generated", new_img_dim = new_img_dim)
 
-training_cores = np.asarray([y for x in [real_cores, generated_cores] for y in x])
+training_imgs = np.asarray([y for x in [real_imgs, generated_imgs] for y in x])
 training_labels =np.asarray([y for x in [real_labels, generated_labels] for y in x])
 
 #get input shape
-input_shape = real_cores[0].shape
+input_shape = (new_img_dim, new_img_dim, 3)
 
 #get frozen model
 model = get_compiled_model(input_shape, trainable_base = False, lr = run_params["top_model_optimizer_learning_rate"])
@@ -104,17 +125,19 @@ if not os.path.isdir("checkpoints"):
     os.mkdir("checkpoints")
 
 print("Training the classifier on top of MobileNetV3")
-model.fit(x = training_cores, y= training_labels,
+model.fit(x = training_imgs, y= training_labels,
           epochs=run_params["top_model_epochs"], batch_size = run_params["batch_size"],shuffle = True)
 
 
-model.save_weights(os.path.join("checkpoints", "MobileNetFrozen_weights"))
-keras.backend.clear_session()
+model.save_weights(os.path.join("checkpoints", "MobileNetFrozen_imgs_weights"))
 del model
+keras.backend.clear_session()
+tf.compat.v1.reset_default_graph()
+
 
 #get unfrozen model
 model = get_compiled_model(input_shape, trainable_base = True, lr = run_params["full_model_optimizer_learning_rate"])
-model.load_weights(os.path.join("checkpoints", "MobileNetFrozen_weights"))
+model.load_weights(os.path.join("checkpoints", "MobileNetFrozen_imgs_weights"))
 
 print("Training the full model")
 print(model.summary())
@@ -146,28 +169,31 @@ for r in range(spr_reps):
     
     if r>0:
         model = get_compiled_model(input_shape, trainable_base = True, lr = run_params["full_model_optimizer_learning_rate"])
-        model.load_weights(os.path.join("checkpoints", "SPR_run_{}_weights".format(r)))
+        model.load_weights(os.path.join("checkpoints", "SPR_imgs_run_{}_weights".format(r)))
         
     for i in range(len(model.layers)):
         if i not in excluded_layers:
             if i != 1:
                 #print("Layer: {} Name {}".format(i, model.layers[i].name))
-                item = model.layers[i].get_weights()
-                shrinked_w = l*item[0] + noise_scale*np.random.normal(loc = mu, scale = sigma, size = item[0].shape)
-                shrinked_item = [shrinked_w, item[1]]
-                model.layers[i].set_weights(shrinked_item)
+                # item = model.layers[i].get_weights()
+                # shrinked_w = l*item[0] + noise_scale*np.random.normal(loc = mu, scale = sigma, size = item[0].shape)
+                # shrinked_item = [shrinked_w, item[1]]
+                # model.layers[i].set_weights(shrinked_item)
+                continue
 
     print("Fitting model")
-    model.fit(x = training_cores, y= training_labels,
+    model.fit(x = training_imgs, y= training_labels,
               epochs=run_params["full_model_epochs"], batch_size = run_params["batch_size"],shuffle = True) #TODO early stopping
     
     print("Evaluating model on training set for iteration {}".format(r+1))
-    model.evaluate(x=training_cores, y=training_labels, batch_size = run_params["batch_size"])
+    model.evaluate(x=training_imgs, y=training_labels, batch_size = run_params["batch_size"])
         
-    model.save_weights(os.path.join("checkpoints", "SPR_run_{}_weights".format(r+1)))
-    keras.backend.clear_session()
+    model.save_weights(os.path.join("checkpoints", "SPR_imgs_run_{}_weights".format(r+1)))
     del model
+    keras.backend.clear_session()
+    tf.compat.v1.reset_default_graph()
     gc.collect()
+    
     
 #TODO salvare il modello
 
