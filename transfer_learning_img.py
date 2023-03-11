@@ -58,7 +58,7 @@ def get_compiled_model(input_shape, trainable_base = False, lr = 1e-3):
     dense5 = keras.layers.Dense(289, activation = "relu")
 
     x = dense1(base_model_encoding)
-    x = dense2(x)
+    #x = dense2(x)
     # x = dense3(x)
     # x = dense4(x)
     # x = dense5(x)
@@ -73,23 +73,16 @@ def get_compiled_model(input_shape, trainable_base = False, lr = 1e-3):
                   metrics=[keras.metrics.BinaryAccuracy()])
     return model
 
-def load_imgs(folder_path, input_label, new_img_dim = 448):
-    loaded_imgs = []
-    filenames = os.listdir(folder_path)
-    label_list = []
-    for filename in tqdm(filenames, desc="Loaded"):
-        img = cv2.imread(os.path.join(folder_path, filename))
-        img = cv2.resize(img, (new_img_dim, new_img_dim))
-        loaded_imgs.append(img)
-        if input_label == "Real":
-            label_list.append(1)
-        elif input_label == "Generated":
-            label_list.append(0)
-        else:
-            print("Wrong label specified. Exiting")
-            exit()
-
-    return loaded_imgs, label_list
+# Definisci la funzione per caricare e decodificare le immagini
+def load_and_decode_image(filename, label, image_size):
+    # Load and decode the image from the file
+    image_string = tf.io.read_file(filename)
+    image = tf.image.decode_jpeg(image_string, channels=3)
+    # Resize the image to the desired size
+    image = tf.image.resize(image, image_size)
+    # Convert label to a tensor
+    label = tf.convert_to_tensor(label)
+    return image, label
 
 parser = ap.ArgumentParser()
 parser.add_argument("-json", "--path_to_json", required=True, help="Path to config json.")
@@ -102,14 +95,54 @@ with open(json_path) as f:
     
 #reload core tensors of images
 print("Loading training images")
-new_img_dim = run_params["new_img_dim"]
-real_imgs_train, real_labels_train = load_imgs(run_params["real_imgs_train"], "Real", new_img_dim = new_img_dim)
-generated_imgs_train, generated_labels_train = load_imgs(run_params["generated_imgs_train"], "Generated", new_img_dim = new_img_dim)
 
-training_imgs = np.asarray([y for x in [real_imgs_train, generated_imgs_train] for y in x])
-training_labels =np.asarray([y for x in [real_labels_train, generated_labels_train] for y in x])
+# Definisci le cartelle contenenti le immagini
+real_train_path = run_params["real_imgs_train"]
+generated_train_path = run_params["generated_imgs_train"]
+# Dimensione resize immagini
+resize_dim = (run_params["new_img_dim"], run_params["new_img_dim"])
+model_input_shape =(run_params["new_img_dim"], run_params["new_img_dim"],3)
 
-a
+#get frozen model
+model = get_compiled_model(model_input_shape, trainable_base = False, lr = run_params["top_model_optimizer_learning_rate"])
+print("Model summary")
+print(model.summary())
+if not os.path.isdir("checkpoints"):
+    os.mkdir("checkpoints")
+    
+# Definisci il batch size
+dataset_batch_size = 1024
+
+# Definisci le etichette per ogni cartella
+real_label = 0
+generated_label = 1
+parent_dir = run_params["dataset_dir"]
+real_dir = run_params["real_imgs_train"]
+sint_dir = run_params["generated_imgs_train"]
+
+# Create a training dataset from the two directories
+train_dataset = tf.keras.preprocessing.image_dataset_from_directory(
+    parent_dir,
+    labels="inferred",
+    class_names = ["real", "sint"],
+    label_mode='int',
+    color_mode='rgb',
+    batch_size=dataset_batch_size,
+    image_size=resize_dim,
+    shuffle=True,
+    seed=123
+)
+    
+print("Training the classifier on top of MobileNetV3")
+# Train the model in batches 
+idx = 1
+for images, labels in train_dataset:
+    print("Batch {} out of {}".format(idx, len(train_dataset)))
+    model.fit(x = images, y = labels, epochs=run_params["top_model_epochs"],shuffle = True)
+    idx +=1
+    
+model.save_weights(os.path.join("checkpoints", "MobileNetFrozen_imgs_weights"))
+
 # print("Loading validation images")
 # real_imgs_val, real_labels_val = load_imgs(run_params["real_imgs_val"], "Real", new_img_dim = new_img_dim)
 # generated_imgs_val, generated_labels_val = load_imgs(run_params["generated_imgs_val"], "Generated", new_img_dim = new_img_dim)
@@ -122,34 +155,17 @@ a
 # real_imgs_val, real_labels_val = load_imgs(run_params["real_imgs_val"], "Real", new_img_dim = new_img_dim)
 # generated_imgs_val, generated_labels_val = load_imgs(run_params["generated_imgs_val"], "Generated", new_img_dim = new_img_dim)
 
-training_imgs_val = np.asarray([y for x in [real_imgs_val, generated_imgs_val] for y in x])
-training_labels_val =np.asarray([y for x in [real_labels_val, generated_labels_val] for y in x])
 
-#get input shape
-input_shape = (new_img_dim, new_img_dim, 3)
-
-#get frozen model
-model = get_compiled_model(input_shape, trainable_base = False, lr = run_params["top_model_optimizer_learning_rate"])
-
-print("Model summary")
-print(model.summary())
-
-if not os.path.isdir("checkpoints"):
-    os.mkdir("checkpoints")
-
-print("Training the classifier on top of MobileNetV3")
-model.fit(x = training_imgs, y= training_labels,
-          epochs=run_params["top_model_epochs"], batch_size = run_params["batch_size"],shuffle = True)
+a
 
 
-model.save_weights(os.path.join("checkpoints", "MobileNetFrozen_imgs_weights"))
 del model
 keras.backend.clear_session()
 tf.compat.v1.reset_default_graph()
 
 
 #get unfrozen model
-model = get_compiled_model(input_shape, trainable_base = True, lr = run_params["full_model_optimizer_learning_rate"])
+model = get_compiled_model(model_input_shape, trainable_base = True, lr = run_params["full_model_optimizer_learning_rate"])
 model.load_weights(os.path.join("checkpoints", "MobileNetFrozen_imgs_weights"))
 
 print("Training the full model")
@@ -181,7 +197,7 @@ for r in range(spr_reps):
     print("Shrinking and perturbing each layer's weights")
     
     if r>0:
-        model = get_compiled_model(input_shape, trainable_base = True, lr = run_params["full_model_optimizer_learning_rate"])
+        model = get_compiled_model(model_input_shape, trainable_base = True, lr = run_params["full_model_optimizer_learning_rate"])
         model.load_weights(os.path.join("checkpoints", "SPR_imgs_run_{}_weights".format(r)))
         
     for i in range(len(model.layers)):
@@ -195,11 +211,10 @@ for r in range(spr_reps):
                 continue
 
     print("Fitting model")
-    model.fit(x = training_imgs, y= training_labels,
-              epochs=run_params["full_model_epochs"], batch_size = run_params["batch_size"],shuffle = True) #TODO early stopping
+    model.fit(train_dataset, epochs=run_params["top_model_epochs"],shuffle = True)
     
     print("Evaluating model on training set for iteration {}".format(r+1))
-    model.evaluate(x=training_imgs, y=training_labels, batch_size = run_params["batch_size"])
+    model.evaluate(train_dataset)
         
     model.save_weights(os.path.join("checkpoints", "SPR_imgs_run_{}_weights".format(r+1)))
     del model

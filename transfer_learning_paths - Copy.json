@@ -1,10 +1,11 @@
 {
-	"generated_imgs_train": "C:\\Users\\ecero\\Documents\\GitHub\\gng\\dataset\\train_real",
-	"real_imgs_train": "C:\\Users\\ecero\\Documents\\GitHub\\gng\\dataset\\train_real",
+	"dataset_dir": "C:\\Users\\ecero\\Documents\\GitHub\\gng\\dataset\\train",
+	"generated_imgs_train": "train_sint",
+	"real_imgs_train": "train_real",
 	"new_img_dim": 448,
 	"spr_reps": 1,
 	"batch_size": 32,
-	"top_model_epochs": 30,
+	"top_model_epochs": 1,
 	"full_model_epochs": 20,
 	"top_model_optimizer_learning_rate": 1e-3,
 	"full_model_optimizer_learning_rate": 1e-3
