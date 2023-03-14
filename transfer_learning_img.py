@@ -103,28 +103,23 @@ generated_train_path = run_params["generated_imgs_train"]
 resize_dim = (run_params["new_img_dim"], run_params["new_img_dim"])
 model_input_shape =(run_params["new_img_dim"], run_params["new_img_dim"],3)
 
-#get frozen model
-model = get_compiled_model(model_input_shape, trainable_base = False, lr = run_params["top_model_optimizer_learning_rate"])
-print("Model summary")
-print(model.summary())
+
 if not os.path.isdir("checkpoints"):
     os.mkdir("checkpoints")
     
 # Definisci il batch size
-dataset_batch_size = 1024
+dataset_batch_size = 512
 
-# Definisci le etichette per ogni cartella
-real_label = 0
-generated_label = 1
-parent_dir = run_params["dataset_dir"]
-real_dir = run_params["real_imgs_train"]
-sint_dir = run_params["generated_imgs_train"]
+
+parent_dir_train = run_params["dataset_dir_train"]
+real_dir_train = run_params["real_imgs_train"]
+sint_dir_train = run_params["generated_imgs_train"]
 
 # Create a training dataset from the two directories
 train_dataset = tf.keras.preprocessing.image_dataset_from_directory(
-    parent_dir,
+    parent_dir_train,
     labels="inferred",
-    class_names = ["real", "sint"],
+    class_names = [real_dir_train, sint_dir_train],
     label_mode='int',
     color_mode='rgb',
     batch_size=dataset_batch_size,
@@ -132,30 +127,69 @@ train_dataset = tf.keras.preprocessing.image_dataset_from_directory(
     shuffle=True,
     seed=123
 )
+
+parent_dir_val = run_params["dataset_dir_val"]
+real_dir_val = run_params["real_imgs_val"]
+sint_dir_val = run_params["generated_imgs_val"]
+
+val_dataset  =  tf.keras.preprocessing.image_dataset_from_directory(
+    parent_dir_val,
+    labels="inferred",
+    class_names = [real_dir_val, sint_dir_val],
+    label_mode='int',
+    color_mode='rgb',
+    batch_size=dataset_batch_size,
+    image_size=resize_dim,
+    shuffle=True,
+    seed=123
+)
+
+parent_dir_test = run_params["dataset_dir_test"]
+real_dir_test = run_params["real_imgs_test"]
+sint_dir_test = run_params["generated_imgs_test"]
+
+test_dataset  =  tf.keras.preprocessing.image_dataset_from_directory(
+    parent_dir_test,
+    labels="inferred",
+    class_names = [real_dir_test, sint_dir_test],
+    label_mode='int',
+    color_mode='rgb',
+    batch_size=dataset_batch_size,
+    image_size=resize_dim,
+    shuffle=True,
+    seed=123
+)
+
+reload_base = True
+if reload_base:
+    model = get_compiled_model(model_input_shape, trainable_base = False, lr = run_params["top_model_optimizer_learning_rate"])
+    model.load_weights(os.path.join("checkpoints", "MobileNetFrozen_imgs_weights"))
     
-print("Training the classifier on top of MobileNetV3")
-# Train the model in batches 
+else:
+    #get frozen model
+    model = get_compiled_model(model_input_shape, trainable_base = False, lr = run_params["top_model_optimizer_learning_rate"])
+    print("Model summary")
+    print(model.summary())
+    print("Training the classifier on top of MobileNetV3")
+    # Train the model in batches 
+    idx = 1
+    for images, labels in train_dataset:
+        print("Training batch {} out of {}".format(idx, len(train_dataset)))
+        model.fit(x = images, y = labels, epochs=run_params["top_model_epochs"],shuffle = True)
+        idx +=1
+        
+    model.save_weights(os.path.join("checkpoints", "MobileNetFrozen_imgs_weights"))
+
 idx = 1
-for images, labels in train_dataset:
-    print("Batch {} out of {}".format(idx, len(train_dataset)))
-    model.fit(x = images, y = labels, epochs=run_params["top_model_epochs"],shuffle = True)
+chunk_test_accuracies = []
+for test_images, test_labels in test_dataset:
+    print("Test batch {} out of {}".format(idx, len(test_dataset)))
+    chunk_test_accuracies.append(model.evaluate(test_images,test_labels))
     idx +=1
+
+for i in range(len(chunk_test_accuracies)):
+    print("Chunk {} accuracy: {}".format(i+1,chunk_test_accuracies[i]))
     
-model.save_weights(os.path.join("checkpoints", "MobileNetFrozen_imgs_weights"))
-
-# print("Loading validation images")
-# real_imgs_val, real_labels_val = load_imgs(run_params["real_imgs_val"], "Real", new_img_dim = new_img_dim)
-# generated_imgs_val, generated_labels_val = load_imgs(run_params["generated_imgs_val"], "Generated", new_img_dim = new_img_dim)
-
-# training_imgs_val = np.asarray([y for x in [real_imgs_val, generated_imgs_val] for y in x])
-# training_labels_val =np.asarray([y for x in [real_labels_val, generated_labels_val] for y in x])
-
-
-# print("Loading test images")
-# real_imgs_val, real_labels_val = load_imgs(run_params["real_imgs_val"], "Real", new_img_dim = new_img_dim)
-# generated_imgs_val, generated_labels_val = load_imgs(run_params["generated_imgs_val"], "Generated", new_img_dim = new_img_dim)
-
-
 a
 
 
