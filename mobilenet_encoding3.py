@@ -307,24 +307,29 @@ for test_images, test_labels in test_dataset:
 for i in range(len(chunk_test_accuracies)):
     print("Test Chunk {} accuracy: {}".format(i+1,chunk_test_accuracies[i]))
     
-# train_encoded_vectors_only_real = train_encoded_vectors.loc[train_encoded_vectors["Label"] == 0].copy()
+train_encoded_vectors_only_real = train_encoded_vectors.loc[train_encoded_vectors["Label"] == 0].copy()
 test_encoded_vectors_only_sint = test_encoded_vectors.loc[test_encoded_vectors["Label"] == 1].copy()
+train_encoded_vectors_only_sint = train_encoded_vectors.loc[train_encoded_vectors["Label"] == 1].copy()
 
-#TODO umap e plot proiezione
 
 # seleziona solo le colonne con i dati (ignorando l'ultima colonna con le label)
 test_encoded_vectors_only_sint.loc[test_encoded_vectors_only_sint['Label'] ==1, 'Label'] = 2
 
-# all_vectors = pd.concat([train_encoded_vectors_only_real, test_encoded_vectors_only_sint], ignore_index=True)
-all_vectors = pd.concat([train_encoded_vectors, test_encoded_vectors_only_sint], ignore_index=True)
+#0 vs 2
+#all_vectors = pd.concat([train_encoded_vectors_only_real, test_encoded_vectors_only_sint], ignore_index=True)
+#0 vs 1
+#all_vectors = pd.concat([train_encoded_vectors, test_encoded_vectors_only_sint], ignore_index=True)
+#1 vs 2
+all_vectors = pd.concat([train_encoded_vectors_only_sint, test_encoded_vectors_only_sint], ignore_index=True)
+
 
 enc_vectors = all_vectors.iloc[:, :-1]
 
 
 # usa UMAP per ridurre la dimensionalità a 2 componenti
 ncomp = 5
-reducer = umap.UMAP(n_components=ncomp)
-#reducer = PCA(n_components=ncomp)
+#reducer = umap.UMAP(n_components=ncomp)
+reducer = PCA(n_components=ncomp)
 embedding = reducer.fit_transform(enc_vectors)
 
 # crea un dataframe con i dati proiettati
