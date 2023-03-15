@@ -14,6 +14,10 @@ from tensorflow import keras
 from tqdm import tqdm
 import gc
 import cv2
+from keras.layers import Layer
+import tensorly as tl
+from tensorly.decomposition import tucker
+import keras.backend as K
 
 # gpus = tf.config.list_physical_devices('GPU')
 # if gpus:
@@ -28,7 +32,6 @@ import cv2
 #     # Virtual devices must be set before GPUs have been initialized
 #     print(e)
 
-
 def get_compiled_model(input_shape, trainable_base = False, lr = 1e-3):
     #instantiate a base model with pre-trained weight
     base_model = keras.applications.MobileNetV3Large(input_shape = input_shape,
@@ -42,10 +45,10 @@ def get_compiled_model(input_shape, trainable_base = False, lr = 1e-3):
     else:
         #freeze the base model
         base_model.trainable = False
-
+    
     #Create a new model on top of base model
     inputs = keras.Input(shape=input_shape)
-
+    
     #making sure that base model runs in inference only mode (setting training = False), important for fine-tuning
     x = base_model(inputs, training=False)
     # Convert features of shape `base_model.output_shape[1:]` to vectors
@@ -79,7 +82,7 @@ def load_and_decode_image(filename, label, image_size):
     image_string = tf.io.read_file(filename)
     image = tf.image.decode_jpeg(image_string, channels=3)
     # Resize the image to the desired size
-    image = tf.image.resize(image, image_size)
+    image = tf.image.resize(image, image_size)    
     # Convert label to a tensor
     label = tf.convert_to_tensor(label)
     return image, label
@@ -102,7 +105,6 @@ generated_train_path = run_params["generated_imgs_train"]
 # Dimensione resize immagini
 resize_dim = (run_params["new_img_dim"], run_params["new_img_dim"])
 model_input_shape =(run_params["new_img_dim"], run_params["new_img_dim"],3)
-
 
 if not os.path.isdir("checkpoints"):
     os.mkdir("checkpoints")
@@ -160,7 +162,8 @@ test_dataset  =  tf.keras.preprocessing.image_dataset_from_directory(
     seed=123
 )
 
-reload_base = True
+reload_base = False
+
 if reload_base:
     model = get_compiled_model(model_input_shape, trainable_base = False, lr = run_params["top_model_optimizer_learning_rate"])
     model.load_weights(os.path.join("checkpoints", "MobileNetFrozen_imgs_weights"))
