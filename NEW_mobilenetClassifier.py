@@ -103,7 +103,7 @@ performance_log_output_path = os.path.join(main_model_output_path, classifier_na
 evaluate_trained_model = True
 
 main_shap_output_path = "SHAPOut"
-shap_output_path = os.path.join(classifier_name +"_shap_explainations")
+shap_output_path = os.path.join(main_shap_output_path, classifier_name +"_shap_explainations")
 
 #Setup trained model output paths
 if not os.path.exists(main_model_output_path):
@@ -267,9 +267,9 @@ if evaluate_trained_model:
     with open(os.path.join(performance_log_output_path, classifier_name + "_performance_log.txt"), "w" ) as f:
         f.write("Performance log for model {}\n".format(classifier_name))
         f.write("Train set: {}\nValidation set: {}\nTest set: {}\n".format(parent_dir_train, parent_dir_val, parent_dir_test))
-        f.write("Train set Accuracy:{:.2f}%\tLoss:{:.4f}".format(train_set_eval[1]*100, train_set_eval[0]))
-        f.write("Validation set Accuracy:{:.2f}%\tLoss:{:.4f}".format(val_set_eval[1]*100, val_set_eval[0]))
-        f.write("Train set Accuracy:{:.2f}%\tLoss:{:.4f}".format(test_set_eval[1]*100, test_set_eval[0]))
+        f.write("Train set Accuracy:{:.2f}%\tLoss:{:.4f}\n".format(train_set_eval[1]*100, train_set_eval[0]))
+        f.write("Validation set Accuracy:{:.2f}%\tLoss:{:.4f}\n".format(val_set_eval[1]*100, val_set_eval[0]))
+        f.write("Train set Accuracy:{:.2f}%\tLoss:{:.4f}\n".format(test_set_eval[1]*100, test_set_eval[0]))
     f.close()
 
 # print("Evaluate model on validation set")
@@ -277,7 +277,7 @@ if evaluate_trained_model:
 
 #Starting application of SHAP explainer
 num_images_shap = 10 #select how many images to use
-shap_data_origin = "test"
+shap_data_origin = "val"
     
 print("Explaining prediction for a validation batch with SHAP for {} images".format(num_images_shap))
 print("It might take a while...")
