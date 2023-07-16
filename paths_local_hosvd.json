@@ -1,9 +1,0 @@
-{
-	"generated": "/repo/tanfoni/GNG_dataset/Preprocessing_output/Real_run_4K",
-	"real": "/repo/tanfoni/GNG_dataset/Preprocessing_output/Sint_run_4K",
-	"hosvd_savefolder": "/repo/tanfoni/GNG_dataset/Compressed_imgs",
-	"resize_img_dim": 800,
-	"compression": 4,
-	"hosvd_channels": 3,
-	"force_hosvd": "False"
-}
