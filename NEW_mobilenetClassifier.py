@@ -14,7 +14,7 @@ import json
 import tensorflow as tf
 from tensorflow import keras
 import gc
-import cv2
+# import cv2
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
