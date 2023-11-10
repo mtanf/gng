@@ -3,12 +3,13 @@ import os
 import mtcnn
 import argparse as ap
 import math
+from tqdm import tqdm
 
 def split_list(lst, chunk_size):
     for i in range(0, len(lst), chunk_size):
         yield lst[i:i+chunk_size]
         
-detector = mtcnn.MTCNN(min_face_size = 90)
+detector = mtcnn.MTCNN(min_face_size = 50)
 
 parser = ap.ArgumentParser()
 parser.add_argument("-orig", "--original_folder", help="Original image folder, please provide absolute paths!", required=True)
@@ -58,22 +59,22 @@ for item in f:
 num_imgs = len(imgs_list)
 chunk_size = math.floor(num_imgs/num_chunks)
 
-for chunk in split_list(imgs_list, chunk_size):
+for chunk in tqdm(split_list(imgs_list, chunk_size), total = num_chunks, desc = "Processing chunks"):
     #load all images
     imgs = []
     img_names = []
     
-    for img_path in chunk:
+    for img_path in tqdm(chunk, total = len(chunk), desc = "Loading images"):
         try:
             tmp =cv2.imread(img_path)
             name = os.path.basename(img_path)
-            img_names.append(name.split(".")[0])
+            img_names.append(name.split("-")[0])
             imgs.append(tmp)
         except:
             print("Could not load img from {}".format(img_path))
             continue
         
-    for i in range(len(imgs)):
+    for i in tqdm(range(len(imgs)), total = len(imgs), desc = "Processing images"):
         frame = imgs[i]
         img_name = img_names[i]
         try:
@@ -108,8 +109,8 @@ for chunk in split_list(imgs_list, chunk_size):
             if area > 75000:
                 try:
                     roi_color = frame[y1:y2 + h, x1:x2 + w]
-                    #cv2.imwrite(os.path.join(destination_folder, img_name+"_OF_{}_".format(offset) +str(i)+".jpg"),roi_color)
-                    cv2.imwrite(os.path.join(destination_folder, img_name + ".jpg"),roi_color)
+                    cv2.imwrite(os.path.join(destination_folder, img_name+"_OF_{}_".format(offset) +str(i)+".jpg"),roi_color)
+                    # cv2.imwrite(os.path.join(destination_folder, img_name + ".jpg"),roi_color)
                 except:
                     print("Something went terribly wrong with this face, skipping")
             else:
