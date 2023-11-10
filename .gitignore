@@ -1,6 +1,8 @@
 Dataset/
 Dataset_merged/
+Dataset_mtcnn/
 hosvd_results/
+nohup.out
 dataset.zip
 mnet_encodings/StyleGAN2_train_encoded.csv
 mnet_encodings/StyleGAN3_encoded.csv
