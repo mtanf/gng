@@ -1,6 +1,7 @@
 Dataset/
 Dataset_merged/
 Dataset_mtcnn/
+Dataset_seg/
 hosvd_results/
 nohup.out
 dataset.zip
