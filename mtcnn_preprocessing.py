@@ -45,10 +45,13 @@ else:
     for (dirpath, dirnames, filenames) in os.walk(destination_folder):
         k.extend(filenames)
         break
-    
+
     for item in k:
-        f.remove(item.split(".")[0]+ext)
-    #f = [x for x in f if x.split(".")[0] + ".png" not in k]
+        file_to_remove = item.split(".")[0] + ext
+        if file_to_remove in f:
+            f.remove(file_to_remove)
+        # else:
+        #     print(f"File {file_to_remove} non trovato nella lista.")
 
 imgs_list = []
 for item in f:

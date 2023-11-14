@@ -7,7 +7,7 @@ import os
 import shutil
 import cv2
 import numpy as np
-from mtcnn.mtcnn import MTCNN
+from mtcnn import MTCNN
 from tqdm import tqdm
 from multiprocessing import Pool, Manager
 
@@ -110,7 +110,7 @@ def process_image(input_path, output_path):
         print(f"Face {i + 1} extracted from {input_path} and saved to {face_output_path}")
 
 
-def MTCNN_extractor(input_dir, output_dir, num_processes = 16):
+def MTCNN_extractor_multiprocessing(input_dir, output_dir, num_processes = 16):
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -118,15 +118,56 @@ def MTCNN_extractor(input_dir, output_dir, num_processes = 16):
     output_paths = [os.path.join(output_dir, filename) for filename in os.listdir(input_dir)]
 
     with Pool(num_processes) as pool:
-        pool.starmap(process_image, zip(input_paths, output_paths))
+        pool.imap_unordered(process_image, zip(input_paths, output_paths), chunksize=1000)
+        pool.close()
+        pool.join()
+        pool.terminate()
+
+        # #this is to avoid memory leaks in the pool processes
+        # del pool
+
+def MTCNN_extractor(input_dir, output_dir):
+    # Initialize the MTCNN face detector
+    detector = MTCNN()
+
+    # Create the output directory if it doesn't exist
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # Process images in the input directory
+    for filename in tqdm(os.listdir(input_dir), desc="Processing images"):
+        input_path = os.path.join(input_dir, filename)
+        output_path = os.path.join(output_dir, filename)
+
+        # Load the image
+        image = cv2.imread(input_path)
+
+        # Use MTCNN to detect faces in the image
+        faces = detector.detect_faces(image)
+
+        for i, face_info in enumerate(faces):
+            # Extract the face rectangle
+            x, y, width, height = face_info['box']
+
+            # Crop the face from the original image
+            face = image[y:y+height, x:x+width]
+
+            # Generate a unique output path for each face
+            face_output_path = output_path.replace(".", f"_face_{i}.")
+
+            # Save the face in the output
+            cv2.imwrite(face_output_path, face)
+
+            print(f"Face {i+1} extracted from {input_path} and saved to {face_output_path}")
+
 
 input_dir_real = "Dataset_merged/Real"
 input_dir_fake = "Dataset_merged/Fake"
-output_dir_real = "Dataset_mtcnn/Real"
+output_dir_real = "Dataset_mtcnn/Real_prove"
 output_dir_fake = "Dataset_mtcnn/Fake"
 
 # merge_dataset("Dataset/Artifact dataset", "Dataset_merged")
 # apply_grabcut_to_images("Dataset_merged/Real", "Dataset_grabcut/Real")
 # MTCNN_extractor(input_dir_fake, output_dir_fake)
-MTCNN_extractor(input_dir_real, output_dir_real)
+MTCNN_extractor_multiprocessing(input_dir_real, output_dir_real)
 
