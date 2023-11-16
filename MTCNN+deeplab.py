@@ -8,18 +8,18 @@ from torchvision import transforms
 from torchvision.models.segmentation import deeplabv3_resnet101
 from PIL import Image
 import gc
-from memory_profiler import profile
+# from memory_profiler import profile
 
 
 def load_and_preprocess_image(image_path):
-    image = None
+
     image = cv2.imread(image_path)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     return image
 
 
-def detect_faces(image_path, detector, enlarge_percentage=30):
-    image = load_and_preprocess_image(image_path)
+def detect_faces(image, detector, enlarge_percentage=30):
+    # image = load_and_preprocess_image(image_path)
 
     faces = detector.detect_faces(image)
 
@@ -40,9 +40,9 @@ def detect_faces(image_path, detector, enlarge_percentage=30):
     gc.collect()
     return faces
 
-def segment_human(image_path, segmentation_model):
-    image = None
-    image = Image.fromarray(load_and_preprocess_image(image_path))
+def segment_human(input_img, segmentation_model):
+
+    image = Image.fromarray(input_img)
 
     transform = transforms.Compose([
         transforms.Resize((256, 256)),
@@ -71,7 +71,7 @@ def segment_human(image_path, segmentation_model):
     return segmented_image
 
 
-@profile
+# @profile
 def main():
     # Load pre-trained segmentation model (e.g., DeepLabV3)
     segmentation_model = deeplabv3_resnet101(pretrained=True)
@@ -101,12 +101,12 @@ def main():
             if os.path.exists(output_face_path):
                 # print(f"Image {filename} already processed. Skipping.")
                 continue
-
+            img = load_and_preprocess_image(image_path)
             # Detect faces using MTCNN
-            faces = detect_faces(image_path, face_detector)
+            faces = detect_faces(img, face_detector)
 
             # Perform human segmentation
-            segmented_image = segment_human(image_path, segmentation_model)
+            segmented_image = segment_human(img, segmentation_model)
 
 
             # Combine face detection and human segmentation
@@ -128,7 +128,7 @@ def main():
             gc.collect()
 
             # cv2.waitKey(0)
-    del segmentation_model, face_detector
+    del segmentation_model, face_detector, img
     gc.collect()
 
 if __name__ == "__main__":
