@@ -79,17 +79,19 @@ def main():
     face_detector = MTCNN(min_face_size=80)
 
     dataset_path = "Dataset_merged"
-    output_path = "Dataset_seg"
+    output_path = "Dataset_mtcnn+deeplab"
     output_path_mtcnn = "Dataset_mtcnn"
+    output_path_deeplab = "Dataset_deeplab"
 
     for label in ["Real", "Fake"]:
         label_path = os.path.join(dataset_path, label)
         output_label_path = os.path.join(output_path, label)
         output_label_path_mtcnn = os.path.join(output_path_mtcnn, label)
-
+        output_label_path_deeplab = os.path.join(output_path_deeplab, label)
 
         os.makedirs(output_label_path, exist_ok=True)
         os.makedirs(output_label_path_mtcnn, exist_ok=True)
+        os.makedirs(output_label_path_deeplab, exist_ok=True)
 
         for filename in tqdm(os.listdir(label_path), desc=f"Processing {label} images"):
             image_path = os.path.join(label_path, filename)
@@ -107,15 +109,19 @@ def main():
 
             # Perform human segmentation
             segmented_image = segment_human(img, segmentation_model)
+            # cv2.imwrite(os.path.join(output_label_path_deeplab, label, "deeplab_" + filename), cv2.cvtColor(segmented_image, cv2.COLOR_RGB2BGR))
 
+            #first save the result of deeplab before cropping
+            cv2.imwrite(os.path.join(output_label_path_deeplab, "deeplab_" + filename), cv2.cvtColor(segmented_image, cv2.COLOR_RGB2BGR))
 
             # Combine face detection and human segmentation
             i=0
             # cv2.imshow("segmented image", cv2.cvtColor(segmented_image, cv2.COLOR_RGB2BGR))
             for face in faces:
                 x, y, w, h = face['box']
+
                 face_image = segmented_image[y:y+h, x:x+w]
-                face_image_mtcnn = load_and_preprocess_image(image_path)[y:y+h, x:x+w]
+                face_image_mtcnn = img[y:y+h, x:x+w]
                 output_filename = f"{filename.split('.')[0]}_face{i}.png"
                 output_face_path = os.path.join(output_label_path, output_filename)
                 output_face_path_mtcnn = os.path.join(output_label_path_mtcnn, "mtcnn_"+output_filename)
