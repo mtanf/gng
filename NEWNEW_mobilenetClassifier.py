@@ -72,7 +72,7 @@ def build_model(input_shape, trainable_base=False, lr=1e-3, use_pooling=False):
     # Convert features of shape `base_model.output_shape[1:]` to vectors
     if use_pooling:
         base_model_encoding = keras.layers.GlobalAveragePooling2D()(x)
-        classification_layer = keras.layers.Dense(100, activation="relu")(base_model_encoding)
+        classification_layer = keras.layers.Dense(1000, activation="relu")(base_model_encoding)
         outputs = keras.layers.Dense(1, activation="sigmoid")(classification_layer)
     else:
         # Flatten the features
@@ -224,43 +224,55 @@ model.compile(optimizer=keras.optimizers.Adam(learning_rate=run_params["top_mode
               loss=keras.losses.BinaryCrossentropy(from_logits=False),
               metrics=[keras.metrics.BinaryAccuracy()])
 
-
 if use_data_aug:
-    for epoch in range(run_params["training_epochs"]):
-        print("Epoch {} out of {}".format(epoch + 1, run_params["training_epochs"]))
-        for idx, (images, labels) in enumerate(train_dataset_aug):
-            print("Training batch {} out of {}".format(idx + 1, len(train_dataset_aug)))
-            if use_validation_data_in_training:
-                model.fit(x=images, y=labels, epochs=run_params["NoFineTuning_BatchEpochs"], shuffle=True,
-                          validation_data=val_dataset)
-            else:
-                model.fit(x=images, y=labels, epochs=run_params["NoFineTuning_BatchEpochs"], shuffle=True)
-            if training_max_batches is not None:
-                if idx >= training_max_batches:
-                    print("Breaking, max training batches reached ({})".format(training_max_batches))
-                    break
-            else:
-                if idx >= len(train_dataset_aug):
-                    # print("Breaking, max training batches reached ({})".format(len(train_dataset_aug)))
-                    break
+    if use_validation_data_in_training:
+        model.fit(train_dataset_aug, epochs=run_params["full_model_epochs"], validation_data=val_dataset)
+    else:
+        model.fit(train_dataset_aug, epochs=run_params["full_model_epochs"])
 else:
-    for epoch in range(run_params["training_epochs"]):
-        print("Epoch {} out of {}".format(epoch + 1, run_params["training_epochs"]))
-        for idx, (images, labels) in enumerate(train_dataset):
-            print("Training batch {} out of {}".format(idx + 1, len(train_dataset)))
-            if use_validation_data_in_training:
-                model.fit(x=images, y=labels, epochs=run_params["NoFineTuning_BatchEpochs"], shuffle=True,
-                          validation_data=val_dataset)
-            else:
-                model.fit(x=images, y=labels, epochs=run_params["NoFineTuning_BatchEpochs"], shuffle=True)
-            if training_max_batches is not None:
-                if idx >= training_max_batches:
-                    print("Breaking, max training batches reached ({})".format(training_max_batches))
-                    break
-            else:
-                if idx >= len(train_dataset):
-                    # print("Breaking, max training batches reached ({})".format(len(train_dataset_aug)))
-                    break
+    if use_validation_data_in_training:
+        model.fit(train_dataset, epochs=run_params["full_model_epochs"], validation_data=val_dataset)
+    else:
+        model.fit(train_dataset, epochs=run_params["full_model_epochs"])
+
+
+
+# if use_data_aug:
+#     for epoch in range(run_params["training_epochs"]):
+#         print("Epoch {} out of {}".format(epoch + 1, run_params["training_epochs"]))
+#         for idx, (images, labels) in enumerate(train_dataset_aug):
+#             print("Training batch {} out of {}".format(idx + 1, len(train_dataset_aug)))
+#             if use_validation_data_in_training:
+#                 model.fit(x=images, y=labels, epochs=run_params["NoFineTuning_BatchEpochs"], shuffle=True,
+#                           validation_data=val_dataset)
+#             else:
+#                 model.fit(x=images, y=labels, epochs=run_params["NoFineTuning_BatchEpochs"], shuffle=True)
+#             if training_max_batches is not None:
+#                 if idx >= training_max_batches:
+#                     print("Breaking, max training batches reached ({})".format(training_max_batches))
+#                     break
+#             else:
+#                 if idx >= len(train_dataset_aug):
+#                     # print("Breaking, max training batches reached ({})".format(len(train_dataset_aug)))
+#                     break
+# else:
+#     for epoch in range(run_params["training_epochs"]):
+#         print("Epoch {} out of {}".format(epoch + 1, run_params["training_epochs"]))
+#         for idx, (images, labels) in enumerate(train_dataset):
+#             print("Training batch {} out of {}".format(idx + 1, len(train_dataset)))
+#             if use_validation_data_in_training:
+#                 model.fit(x=images, y=labels, epochs=run_params["NoFineTuning_BatchEpochs"], shuffle=True,
+#                           validation_data=val_dataset)
+#             else:
+#                 model.fit(x=images, y=labels, epochs=run_params["NoFineTuning_BatchEpochs"], shuffle=True)
+#             if training_max_batches is not None:
+#                 if idx >= training_max_batches:
+#                     print("Breaking, max training batches reached ({})".format(training_max_batches))
+#                     break
+#             else:
+#                 if idx >= len(train_dataset):
+#                     # print("Breaking, max training batches reached ({})".format(len(train_dataset_aug)))
+#                     break
 
 print("Saving model")
 model.save(os.path.join(weight_output_path, classifier_name + "_weights.h5"))
@@ -279,6 +291,27 @@ if evaluate_trained_model:
     val_set_eval = model.evaluate(val_dataset, batch_size=test_batch_size)
     test_set_eval = model.evaluate(test_dataset, batch_size=test_batch_size)
 
+    train_set_eval = np.array(train_set_eval)
+    val_set_eval = np.array(val_set_eval)
+    test_set_eval = np.array(test_set_eval)
+
+    # evaluating F1 score
+    train_set_eval = np.append(train_set_eval, 2 * train_set_eval[1] * train_set_eval[2] / (train_set_eval[1] + train_set_eval[2]))
+    val_set_eval = np.append(val_set_eval, 2 * val_set_eval[1] * val_set_eval[2] / (val_set_eval[1] + val_set_eval[2]))
+    test_set_eval = np.append(test_set_eval, 2 * test_set_eval[1] * test_set_eval[2] / (test_set_eval[1] + test_set_eval[2]))
+
+    # evaluating precision
+    train_set_eval = np.append(train_set_eval, 2 * train_set_eval[1] * train_set_eval[3] / (train_set_eval[1] + train_set_eval[3]))
+    val_set_eval = np.append(val_set_eval, 2 * val_set_eval[1] * val_set_eval[3] / (val_set_eval[1] + val_set_eval[3]))
+    test_set_eval = np.append(test_set_eval, 2 * test_set_eval[1] * test_set_eval[3] / (test_set_eval[1] + test_set_eval[3]))
+
+    # evaluating recall
+    train_set_eval = np.append(train_set_eval, 2 * train_set_eval[1] * train_set_eval[4] / (train_set_eval[1] + train_set_eval[4]))
+    val_set_eval = np.append(val_set_eval, 2 * val_set_eval[1] * val_set_eval[4] / (val_set_eval[1] + val_set_eval[4]))
+    test_set_eval = np.append(test_set_eval, 2 * test_set_eval[1] * test_set_eval[4] / (test_set_eval[1] + test_set_eval[4]))
+
+
+
     with open(os.path.join(performance_log_output_path, classifier_name + "_performance_log.txt"), "w") as f:
         f.write("Performance log for model {}\n".format(classifier_name))
         f.write("Train set: {}\nValidation set: {}\nTest set: {}\n".format(parent_dir_train, parent_dir_val,
@@ -286,6 +319,11 @@ if evaluate_trained_model:
         f.write("Train set Accuracy:{:.2f}%\tLoss:{:.4f}\n".format(train_set_eval[1] * 100, train_set_eval[0]))
         f.write("Validation set Accuracy:{:.2f}%\tLoss:{:.4f}\n".format(val_set_eval[1] * 100, val_set_eval[0]))
         f.write("Train set Accuracy:{:.2f}%\tLoss:{:.4f}\n".format(test_set_eval[1] * 100, test_set_eval[0]))
+
+        f.write("Train set F1 score:{:.4f}\tPrecision:{:.4f}\tRecall:{:.4f}\n".format(train_set_eval[5], train_set_eval[6], train_set_eval[7]))
+        f.write("Validation set F1 score:{:.4f}\tPrecision:{:.4f}\tRecall:{:.4f}\n".format(val_set_eval[5], val_set_eval[6], val_set_eval[7]))
+        f.write("Test set F1 score:{:.4f}\tPrecision:{:.4f}\tRecall:{:.4f}\n".format(test_set_eval[5], test_set_eval[6], test_set_eval[7]))
+
     f.close()
 
 num_images_shap = 10

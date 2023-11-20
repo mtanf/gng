@@ -83,7 +83,7 @@ def main():
     output_path_mtcnn = "Dataset_mtcnn"
     output_path_deeplab = "Dataset_deeplab"
 
-    for label in ["Real", "Fake"]:
+    for label in ["Fake", "Real"]:
         label_path = os.path.join(dataset_path, label)
         output_label_path = os.path.join(output_path, label)
         output_label_path_mtcnn = os.path.join(output_path_mtcnn, label)
