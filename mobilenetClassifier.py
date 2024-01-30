@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 import matplotlib
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras import backend as K
+from tensorflow.keras import metrics
+from sklearn.utils.class_weight import compute_class_weight
 
 # from imblearn.over_sampling import RandomOverSampler
 # from imblearn.under_sampling import RandomUnderSampler
@@ -72,22 +74,28 @@ def build_model(input_shape, trainable_base=False, lr=1e-3, use_pooling=False):
     # Convert features of shape `base_model.output_shape[1:]` to vectors
     if use_pooling:
         base_model_encoding = keras.layers.GlobalAveragePooling2D()(x)
-        classification_layer = keras.layers.Dense(1000, activation="relu")(base_model_encoding)
+        classification_layer = keras.layers.Dense(200, activation="relu")(base_model_encoding)
         outputs = keras.layers.Dense(1, activation="sigmoid")(classification_layer)
     else:
         # Flatten the features
         x = keras.layers.Flatten()(x)
-        classification_layer = keras.layers.Dense(100, activation="relu")(x)
+        classification_layer = keras.layers.Dense(200, activation="tanh")(x)
         outputs = keras.layers.Dense(1, activation="sigmoid")(classification_layer)
 
     # defining model
     model = keras.Model(inputs, outputs)
-    # # compiling the model
-    # model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr),
-    #               loss=keras.losses.BinaryCrossentropy(from_logits=False),
-    #               metrics=[keras.metrics.BinaryAccuracy()])
-    return model
 
+    # compiling the model
+    model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr),
+                  loss=keras.losses.BinaryCrossentropy(from_logits=False),
+                  metrics=[
+                      keras.metrics.BinaryAccuracy(),
+                      metrics.Precision(),
+                      metrics.Recall(),
+                      metrics.F1Score(average="weighted")
+                  ])
+    print(model.summary())
+    return model
 
 
 def load_and_preprocess_image(filename, label, image_size):
@@ -127,9 +135,6 @@ if not os.path.exists(weight_output_path):
 if not os.path.isdir(main_shap_output_path):
     os.mkdir(main_shap_output_path)
 
-if not os.path.isdir(shap_output_path):
-    os.mkdir(shap_output_path)
-
 with open(json_path) as f:
     run_params = json.load(f)
 
@@ -162,7 +167,7 @@ train_dataset = tf.keras.preprocessing.image_dataset_from_directory(
     parent_dir_train,
     labels="inferred",
     class_names=[real_dir_train, sint_dir_train],
-    label_mode='int',
+    label_mode='binary',
     color_mode='rgb',
     batch_size=train_batch_size,
     image_size=resize_dim,
@@ -176,6 +181,7 @@ if use_data_aug:
         rotation_range=15,
         width_shift_range=0.1,
         height_shift_range=0.1,
+        label_mode='binary',
         shear_range=0.2,
         zoom_range=0.2,
         horizontal_flip=True,
@@ -186,6 +192,7 @@ if use_data_aug:
         parent_dir_train,
         target_size=resize_dim,
         batch_size=train_batch_size,
+        label_mode='binary',
         class_mode='binary',
         shuffle=True,
         seed=123
@@ -197,7 +204,7 @@ val_dataset = tf.keras.preprocessing.image_dataset_from_directory(
     parent_dir_val,
     labels="inferred",
     class_names=[real_dir_val, sint_dir_val],
-    label_mode='int',
+    label_mode='binary',
     color_mode='rgb',
     batch_size=validation_batch_size,
     image_size=resize_dim,
@@ -210,7 +217,7 @@ test_dataset = tf.keras.preprocessing.image_dataset_from_directory(
     parent_dir_test,
     labels="inferred",
     class_names=[real_dir_test, sint_dir_test],
-    label_mode='int',
+    label_mode='binary',
     color_mode='rgb',
     batch_size=test_batch_size,
     image_size=resize_dim,
@@ -218,22 +225,42 @@ test_dataset = tf.keras.preprocessing.image_dataset_from_directory(
     seed=123
 )
 
+# Balancing dataset
+n_fakes = len(os.listdir(os.path.join(parent_dir_train, sint_dir_train)))
+n_reals = len(os.listdir(os.path.join(parent_dir_train, real_dir_train)))
+total = n_fakes + n_reals
+weight_for_0 = (1 / n_reals) * (total) / 2.0
+weight_for_1 = (1 / n_fakes) * (total) / 2.0
+class_weights = {0: weight_for_0, 1: weight_for_1}
+print("Class weights: {}".format(class_weights))
+
 model = build_model(model_input_shape)
 
-model.compile(optimizer=keras.optimizers.Adam(learning_rate=run_params["top_model_optimizer_learning_rate"]),
-              loss=keras.losses.BinaryCrossentropy(from_logits=False),
-              metrics=[keras.metrics.BinaryAccuracy()])
+my_callbacks = [
+    tf.keras.callbacks.EarlyStopping(patience=2, monitor='val_loss', restore_best_weights=True,
+                                     min_delta=0.0001),
+    tf.keras.callbacks.ModelCheckpoint(filepath='model.{epoch:02d}-{val_loss:.2f}.h5'),
+    tf.keras.callbacks.TensorBoard(log_dir='./logs'),
+]
 
 if use_data_aug:
     if use_validation_data_in_training:
-        model.fit(train_dataset_aug, epochs=run_params["full_model_epochs"], validation_data=val_dataset)
+        model.fit(train_dataset_aug, epochs=run_params["full_model_epochs"],
+                  validation_data=val_dataset, class_weight=class_weights,
+                  callbacks=my_callbacks)
     else:
-        model.fit(train_dataset_aug, epochs=run_params["full_model_epochs"])
+        model.fit(train_dataset_aug, epochs=run_params["full_model_epochs"],
+                  class_weight=class_weights,
+                  callbacks=my_callbacks)
 else:
     if use_validation_data_in_training:
-        model.fit(train_dataset, epochs=run_params["full_model_epochs"], validation_data=val_dataset)
+        model.fit(train_dataset, epochs=run_params["full_model_epochs"],
+                  validation_data=val_dataset, class_weight=class_weights,
+                  callbacks=my_callbacks)
     else:
-        model.fit(train_dataset, epochs=run_params["full_model_epochs"])
+        model.fit(train_dataset, epochs=run_params["full_model_epochs"],
+                  class_weight=class_weights,
+                  callbacks=my_callbacks)
 
 
 
@@ -295,22 +322,6 @@ if evaluate_trained_model:
     val_set_eval = np.array(val_set_eval)
     test_set_eval = np.array(test_set_eval)
 
-    # evaluating F1 score
-    train_set_eval = np.append(train_set_eval, 2 * train_set_eval[1] * train_set_eval[2] / (train_set_eval[1] + train_set_eval[2]))
-    val_set_eval = np.append(val_set_eval, 2 * val_set_eval[1] * val_set_eval[2] / (val_set_eval[1] + val_set_eval[2]))
-    test_set_eval = np.append(test_set_eval, 2 * test_set_eval[1] * test_set_eval[2] / (test_set_eval[1] + test_set_eval[2]))
-
-    # evaluating precision
-    train_set_eval = np.append(train_set_eval, 2 * train_set_eval[1] * train_set_eval[3] / (train_set_eval[1] + train_set_eval[3]))
-    val_set_eval = np.append(val_set_eval, 2 * val_set_eval[1] * val_set_eval[3] / (val_set_eval[1] + val_set_eval[3]))
-    test_set_eval = np.append(test_set_eval, 2 * test_set_eval[1] * test_set_eval[3] / (test_set_eval[1] + test_set_eval[3]))
-
-    # evaluating recall
-    train_set_eval = np.append(train_set_eval, 2 * train_set_eval[1] * train_set_eval[4] / (train_set_eval[1] + train_set_eval[4]))
-    val_set_eval = np.append(val_set_eval, 2 * val_set_eval[1] * val_set_eval[4] / (val_set_eval[1] + val_set_eval[4]))
-    test_set_eval = np.append(test_set_eval, 2 * test_set_eval[1] * test_set_eval[4] / (test_set_eval[1] + test_set_eval[4]))
-
-
 
     with open(os.path.join(performance_log_output_path, classifier_name + "_performance_log.txt"), "w") as f:
         f.write("Performance log for model {}\n".format(classifier_name))
@@ -320,14 +331,13 @@ if evaluate_trained_model:
         f.write("Validation set Accuracy:{:.2f}%\tLoss:{:.4f}\n".format(val_set_eval[1] * 100, val_set_eval[0]))
         f.write("Train set Accuracy:{:.2f}%\tLoss:{:.4f}\n".format(test_set_eval[1] * 100, test_set_eval[0]))
 
-        f.write("Train set F1 score:{:.4f}\tPrecision:{:.4f}\tRecall:{:.4f}\n".format(train_set_eval[5], train_set_eval[6], train_set_eval[7]))
-        f.write("Validation set F1 score:{:.4f}\tPrecision:{:.4f}\tRecall:{:.4f}\n".format(val_set_eval[5], val_set_eval[6], val_set_eval[7]))
-        f.write("Test set F1 score:{:.4f}\tPrecision:{:.4f}\tRecall:{:.4f}\n".format(test_set_eval[5], test_set_eval[6], test_set_eval[7]))
-
+        f.write("Train set F1 score:{:.4f}\tPrecision:{:.4f}\tRecall:{:.4f}\n".format(train_set_eval[4], train_set_eval[2], train_set_eval[3]))
+        f.write("Validation set F1 score:{:.4f}\tPrecision:{:.4f}\tRecall:{:.4f}\n".format(val_set_eval[4], val_set_eval[2], val_set_eval[3]))
+        f.write("Test set F1 score:{:.4f}\tPrecision:{:.4f}\tRecall:{:.4f}\n".format(test_set_eval[4], test_set_eval[2], test_set_eval[3]))
     f.close()
 
-num_images_shap = 10
-shap_data_origin = "val"
+num_images_shap = 3
+shap_data_origin = "test"
 
 print("Explaining prediction for a validation batch with SHAP for {} images".format(num_images_shap))
 print("It might take a while...")
@@ -364,28 +374,57 @@ class_names = ["real", "fake"]
 
 explainer = shap.Explainer(model, masker, output_names=class_names)
 
-shap_values = explainer(X_shap[:num_images_shap], outputs=shap.Explanation.argsort.flip[:num_images_shap], max_evals=1000)
+def shap_plot(explainer, X_shap, Y_shap, X_shap_print, num_images_shap, shap_output_path,j):
+    slice = X_shap[j:j+num_images_shap]
+    slice_print=X_shap_print[j:j+num_images_shap]
+    y_slice = Y_shap[j:j+num_images_shap]
+    shap_values = explainer(slice,
+                            outputs=shap.Explanation.argsort.flip[:num_images_shap],
+                            max_evals=1000)
 
-mapping = dict(zip([0, 1], class_names))
+    predictions = model.predict(slice)
+    predictions_labels = np.where(predictions > 0.5, 1, 0)
 
-print("SHAP results")
-print("Actual Labels    : {}".format([mapping[i] for i in Y_shap[:num_images_shap]]))
-preds_shap = model.predict(X_shap[:num_images_shap])
-pred_labels_shap = np.where(preds_shap > 0.5, 1, 0).transpose().tolist()[0]
+    predictions_to_plot = []
+    for i in range(num_images_shap):
+        predictions_to_plot.append(
+            "Pred:{} | True:{}".format(str(predictions_labels.transpose().tolist()[0][i]),
+                                       str(y_slice.transpose().tolist()[0][i])))
+    predictions_to_plot = np.array([[i] for i in predictions_to_plot])
+    plt.figure()
+    shap.image_plot(shap_values, pixel_values=slice_print, labels=predictions_to_plot, show=False)
+    plt.savefig(os.path.join(shap_output_path, "Shap_results_{}_set{}.png".format(shap_data_origin,j)))
+    plt.close("all")
+    # matplotlib.pyplot
+    # plt.show()
 
-print("Predicted Labels : {}".format([mapping[i] for i in pred_labels_shap]))
-print("Sigmoid activation values : {}".format(preds_shap))
+if os.path.isdir(shap_output_path):
+    for file in os.listdir(shap_output_path):
+        os.remove(os.path.join(shap_output_path, file))
 
-predictions = model.predict(X_shap[:num_images_shap])
-predictions_labels = np.where(predictions > 0.5, 1, 0)
+for j in range(0,180,num_images_shap):
+    shap_plot(explainer, X_shap, Y_shap, X_shap_print, num_images_shap, shap_output_path, j)
 
-predictions_to_plot = []
-for i in range(num_images_shap):
-    predictions_to_plot.append(
-        "Pred:{} | True:{}".format(mapping[predictions_labels.transpose().tolist()[0][i]], mapping[Y_shap.tolist()[i]]))
-predictions_to_plot = np.array([[i] for i in predictions_to_plot])
+# mapping = dict(zip([0, 1], class_names))
 
-shap.image_plot(shap_values, pixel_values=X_shap_print[:num_images_shap], labels=predictions_to_plot, show=False)
-plt.savefig(os.path.join(shap_output_path, "Shap_results_{}_set.png".format(shap_data_origin)))
-matplotlib.pyplot
-plt.show()
+# print("SHAP results")
+# print("Actual Labels    : {}".format([str(i) for i in Y_shap[:num_images_shap]]))
+# preds_shap = model.predict(X_shap[:num_images_shap])
+# pred_labels_shap = np.where(preds_shap > 0.5, 1, 0).transpose().tolist()[0]
+#
+# print("Predicted Labels : {}".format([str(i) for i in pred_labels_shap]))
+# print("Sigmoid activation values : {}".format(preds_shap))
+#
+# predictions = model.predict(X_shap[:num_images_shap])
+# predictions_labels = np.where(predictions > 0.5, 1, 0)
+#
+# predictions_to_plot = []
+# for i in range(num_images_shap):
+#     predictions_to_plot.append(
+#         "Pred:{} | True:{}".format(str(predictions_labels.transpose().tolist()[0][i]), str(Y_shap.tolist()[i])))
+# predictions_to_plot = np.array([[i] for i in predictions_to_plot])
+#
+# shap.image_plot(shap_values, pixel_values=X_shap_print[:num_images_shap], labels=predictions_to_plot, show=False)
+# plt.savefig(os.path.join(shap_output_path, "Shap_results_{}_set.png".format(shap_data_origin)))
+# matplotlib.pyplot
+# plt.show()

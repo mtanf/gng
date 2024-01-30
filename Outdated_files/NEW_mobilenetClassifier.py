@@ -96,13 +96,13 @@ use_pooling = False #whether to use global average pooling of encoder net output
 use_validation_data_in_training = False #whether to use allow the usage of validation data in training SLOW
 use_data_aug = True #whether to use data augmentation techniques to train the model
 #define folders
-main_model_output_path = "trained_classifiers"
+main_model_output_path = "../trained_classifiers"
 classifier_name = "MobileNetV3_frozen_useDataAug_" + str(use_data_aug)
 weight_output_path = os.path.join(main_model_output_path, classifier_name + "_weights")
 performance_log_output_path = os.path.join(main_model_output_path, classifier_name + "_performance")
 evaluate_trained_model = True
 
-main_shap_output_path = "SHAPOut"
+main_shap_output_path = "../SHAPOut"
 shap_output_path = os.path.join(main_shap_output_path, classifier_name +"_shap_explainations")
 
 #Setup trained model output paths

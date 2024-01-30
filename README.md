@@ -1,2 +1,2 @@
 # GNG
-Siamese Neural Network for generated faces detections
+MobileNetv3 based network for fake faces detection
