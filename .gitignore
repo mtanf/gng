@@ -1,18 +1,17 @@
-Dataset_preparatori_o_parziali/
-Dataset_mtcnn+deeplab_split/
-Dataset_mtcnn_split/
-Outdated_files/
-SHAPOut/
-logs/
-temp/
-trained_classifiers/
-trained_classifiers/
+# Default ignored files
+/shelf/
+/workspace.xml
+# Editor-based HTTP Client requests
+/httpRequests/
+# Datasource local storage ignored files
+/dataSources/
+/dataSources.local.xml
+# GitHub Copilot persisted chat sessions
+/copilot/chatSessions
+/.idea/
+da_cancellare.py
 nohup.out
-dataset.zip
-paths_local.json
-*.png
-NEW_Classifier_paths.json
-*.out
-model*
-mtcnn_log_folder_Fake.txt
-mtcnn_log_folder_Real.txt
+.ipynb_checkpoints
+/SHAPOut
+/shap_output
+*.h5
