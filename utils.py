@@ -11,6 +11,7 @@ import os
 from tqdm import tqdm
 import shutil
 import xml.etree.ElementTree as ET
+import keras
 
 
 def read_image(image_path, mask=False, resize_img=True, new_image_size=512):
@@ -206,7 +207,7 @@ def unique_colors_in_folder(folder_path):
 
 def focal_loss_multiclass(alpha=0.25, gamma=2.0, num_classes=2, alpha_tensor=None):
     """
-    Focal loss for multiclass segmentation using logits.
+    Focal loss for multicos.path.join(model_folder, model_namelass segmentation using logits.
     Args:
     - alpha (float or list of floats): Balancing factor for each class.
     - gamma (float): Modulating factor.
@@ -374,6 +375,8 @@ def process_dataset_by_class(dataset_dir, output_dir, model, image_size, num_cla
                     save_image(masked_image, save_path)
 
 
+
+
 import os
 import zipfile
 from tqdm import tqdm
@@ -439,14 +442,83 @@ def reorganize_dataset(dataset_dir, xml_file):
 
     print("All files have been reorganized.")
 
-# dataset_dir = '/home/tanfoni/homeRepo/tanfoni/faceSegmentation/mut1ny'
-# xml_file_path = os.path.join(dataset_dir, 'training.xml')
-#
+
+
+from sklearn.model_selection import train_test_split
+
+
+def create_dataset_structure(src_directory, dest_directory, train_size=0.7, valid_size=0.2, test_size=0.1):
+    """
+    Starting from a dataset of tpye:
+    -Dataset/
+        --Fake/
+        --Real/
+
+    Organizes it into train, validation, and test directories with a specified split ratio, giving:
+    -Dataset/
+        --Test/
+            ---Fake/
+            ---Real/
+        --Train/
+            ---Fake/
+            ---Real/
+        --Valid/
+            ---Fake/
+            ---Real/
+
+    Args:
+    src_directory (str): Path to the source directory containing 'Fake' and 'Real' subdirectories.
+    dest_directory (str): Base path to create 'Train', 'Valid', and 'Test' directories.
+    train_size (float): Proportion of the dataset to be used as training data.
+    valid_size (float): Proportion of the dataset to be used as validation data.
+    test_size (float): Proportion of the dataset to be used as test data.
+
+    Raises:
+    ValueError: If the sum of train_size, valid_size, and test_size does not equal 1.
+    """
+
+    if not (train_size + valid_size + test_size == 1):
+        raise ValueError("The sum of train_size, valid_size, and test_size must be 1")
+
+    categories = ['Fake', 'Real']
+    splits = ['Train', 'Valid', 'Test']
+    ratios = [train_size, valid_size, test_size]
+
+    # Create the directory structure for Train, Valid, and Test
+    for split in splits:
+        for category in categories:
+            os.makedirs(os.path.join(dest_directory, split, category), exist_ok=True)
+
+    # Process each category ('Fake', 'Real')
+    for category in categories:
+        full_category_path = os.path.join(src_directory, category)
+        files = [os.path.join(full_category_path, f) for f in os.listdir(full_category_path)]
+
+        # Split files according to the specified ratios
+        train_files, test_files = train_test_split(files, train_size=train_size + valid_size, test_size=test_size,
+                                                   random_state=42)
+        train_files, valid_files = train_test_split(train_files, train_size=train_size / (train_size + valid_size),
+                                                    valid_size=valid_size / (train_size + valid_size), random_state=42)
+
+        # Function to copy files to a specific split
+        def copy_files(files, split):
+            for file in tqdm(files, desc=f"Copying {category} files to {split}", unit='files'):
+                shutil.copy(file, os.path.join(dest_directory, split, category))
+
+        # Copy files to the respective directories
+        copy_files(train_files, 'Train')
+        copy_files(valid_files, 'Valid')
+        copy_files(test_files, 'Test')
+
+
+
+# Usage:
+# create_dataset_structure('Dataset_stylegan3_only', 'Dataset_stylegan3_only', train_size=0.7, valid_size=0.2, test_size=0.1)
+
+
+# xml_file_path = os.path.join(dataset_dir, 'training.xml')#
 # reorganize_dataset(dataset_dir, xml_file_path)
 
-#
-#
-#
 # directory_path = '/homeRepo/tanfoni/Dataset_stylegan3_only/Fake'
 # search_string = 'stylegan3'
 # zip_files_with_string_in_name(directory_path, search_string)

@@ -4,12 +4,13 @@ from glob import glob
 import pickle
 import keras
 from sklearn.model_selection import train_test_split
-from deeplab_mdl_def import DeeplabV3Plus, DeeplabV3Plus_mobilenet
+from deeplab_mdl_def import DeeplabV3Plus, DeeplabV3Plus_mobilenet, DeeplabV3Plus_xception
 from utils import *
 from deeplab_mdl_def import DynamicUpsample
 import matplotlib.pyplot as plt
 from datetime import timedelta
 from tensorflow.keras.metrics import MeanIoU
+
 '''
 import numpy as np
 from PIL import Image
@@ -19,32 +20,32 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 '''
 
 IMAGE_SIZE = 448
-BATCH_SIZE = 16
-#NUM_CLASSES = 14
+BATCH_SIZE = 10
+# NUM_CLASSES = 14
 NUM_EPOCHS = 200
 LR = 1e-4
-EPOCHS_PATIENCE = 7
+EPOCHS_PATIENCE = 10
 RESTORE_BEST_WEIGHTS = True
 CALCULATE_CLASS_WEIGHTS = False
 RELOAD_TRAINED_MODEL = True
 AUGMENT_TRAIN_DATA = True
-BACKBONE = "mobilenetv3" # "mobilenetv3" or "resnet50"
+BACKBONE = "xception"  # "mobilenetv3" or "resnet50" or "xception"
 
-MACHINE = "apophis" # "apophis" or "mec-ai""
+MACHINE = "mec-ai"  # "apophis" or "mec-ai""
 if MACHINE == "apophis":
-    REPO_DIR= "/repo/tanfoni/"
+    REPO_DIR = "/repo/tanfoni/"
 else:
     REPO_DIR = "/homeRepo/tanfoni/"
 
 DATA_DIR = REPO_DIR + "faceSegmentation/dataset_paid_integers"
 
-MDLNAME = "deeplabv3plus_face_segmentation_pro_Aug_"+str(AUGMENT_TRAIN_DATA)+"_"+BACKBONE+".h5"
+MDLNAME = "deeplabv3plus_face_segmentation_pro_Aug_" + str(AUGMENT_TRAIN_DATA) + "_" + BACKBONE + ".h5"
 if RELOAD_TRAINED_MODEL:
     MDLNAME = ("Results/"
                "Deeplab/"
                "models/"
-               "deeplabv3plus_face_segmentation_pro_Aug_True_2024-04-27_16-04-39/"
-               "deeplabv3plus_face_segmentation_pro_Aug_True.h5")
+               "deeplabv3plus_face_segmentation_pro_Aug_True_xception_2024-06-05_18-16-44/"
+               "deeplabv3plus_face_segmentation_pro_Aug_True_xception.h5")
 
 VAL_IMG_FRAC = 0.2
 TEST_IMG_FRAC = 0.1
@@ -78,18 +79,18 @@ COLORMAP_11 = {
     "ears": [1, 1, 0],  # BGR
     "teeth": [1, 1, 1],  # BGR
     "facial_hair": [0.7529411764705882, 0.7529411764705882, 1],  # BGR
-    "glasses": [0.5019607843137255, 0.5019607843137255,0] #BGR
+    "glasses": [0.5019607843137255, 0.5019607843137255, 0]  # BGR
 }
 
-COLORMAP_TO_USE= COLORMAP_14 #TODO funzione per scegliere quale colormap usare
+COLORMAP_TO_USE = COLORMAP_14  # TODO funzione per scegliere quale colormap usare
 
 COLORMAP = {key: [color[2], color[1], color[0]] for key, color in COLORMAP_TO_USE.items()}
-NUM_CLASSES=len(COLORMAP)
+NUM_CLASSES = len(COLORMAP)
 
 plot_eval_folder = "Results/Deeplab/plots/" + MDLNAME.split(".")[0] + "_" + time.strftime("%Y-%m-%d_%H-%M-%S")
 model_folder = "Results/Deeplab/models/" + MDLNAME.split(".")[0] + "_" + time.strftime("%Y-%m-%d_%H-%M-%S")
-performance_metrics_folder = "Results/Deeplab/performance_metrics/" + MDLNAME.split(".")[0] + "_" + time.strftime("%Y-%m-%d_%H-%M-%S")
-
+performance_metrics_folder = "Results/Deeplab/performance_metrics/" + MDLNAME.split(".")[0] + "_" + time.strftime(
+    "%Y-%m-%d_%H-%M-%S")
 
 # # Check unique values in masks
 # mask_folder = '/homeRepo/tanfoni/faceSegmentation/dataset_paid_integers/masks'
@@ -126,7 +127,7 @@ print("Val Masks: {} | expected: {}".format(len(val_masks), NUM_VAL_IMAGES))
 print("Test Images: {} | expected: {}".format(len(test_images), NUM_TEST_IMAGES))
 print("Test Masks: {} | expected: {}".format(len(test_masks), NUM_TEST_IMAGES))
 
-train_dataset = data_generator(train_images,train_masks, BATCH_SIZE, augment_data=AUGMENT_TRAIN_DATA)
+train_dataset = data_generator(train_images, train_masks, BATCH_SIZE, augment_data=AUGMENT_TRAIN_DATA)
 val_dataset = data_generator(val_images, val_masks, BATCH_SIZE, augment_data=False)
 test_dataset = data_generator(test_images, test_masks, BATCH_SIZE, augment_data=False)
 test_dataset_no_resize = data_generator(test_images, test_masks, BATCH_SIZE, augment_data=False, resize_image=False)
@@ -150,8 +151,10 @@ if not RELOAD_TRAINED_MODEL or not os.path.exists(MDLNAME):
     print("Training model...")
     if BACKBONE == "mobilenetv3":
         model = DeeplabV3Plus_mobilenet(num_classes=NUM_CLASSES)
-    else:
+    elif BACKBONE == "resnet":
         model = DeeplabV3Plus(num_classes=NUM_CLASSES)
+    elif BACKBONE == "xception":
+        model = DeeplabV3Plus_xception(num_classes=NUM_CLASSES)
     loss = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate=LR),
@@ -160,11 +163,11 @@ if not RELOAD_TRAINED_MODEL or not os.path.exists(MDLNAME):
     )
 
     print(model.summary())
-    #Definining early stopping callback
+    # Definining early stopping callback
     early_stopping = keras.callbacks.EarlyStopping(monitor="val_loss", patience=EPOCHS_PATIENCE,
                                                    restore_best_weights=RESTORE_BEST_WEIGHTS, min_delta=0.05)
 
-    #Fitting the model
+    # Fitting the model
     history = model.fit(train_dataset, validation_data=val_dataset, epochs=NUM_EPOCHS,
                         callbacks=[early_stopping],
                         class_weight=class_weights)
@@ -176,16 +179,13 @@ if not RELOAD_TRAINED_MODEL or not os.path.exists(MDLNAME):
     if not os.path.exists(model_folder):
         os.makedirs(model_folder)
 
-
-
-    #Saving the model
+    # Saving the model
     model.save(os.path.join(model_folder, MDLNAME))
 
-
-    #Saving the training history
+    # Saving the training history
     with open(os.path.join(model_folder, MDLNAME.split(".")[0] + "_history.pkl"), "wb") as pickle_file:
         pickle.dump(history.history, pickle_file)
-    #saving parameters
+    # saving parameters
     with open(os.path.join(model_folder, MDLNAME.split(".")[0] + "_parameters.txt"), "w") as text_file:
         text_file.write(f"Image size: {IMAGE_SIZE}\n")
         text_file.write(f"Batch size: {BATCH_SIZE}\n")
@@ -210,7 +210,6 @@ if not RELOAD_TRAINED_MODEL or not os.path.exists(MDLNAME):
         text_file.write(f"History: {history}\n")
         text_file.write(f"Model: {model}\n")
 
-
     # Plot training loss
     plt.plot(history.history["loss"])
     plt.title("Training Loss")
@@ -220,7 +219,6 @@ if not RELOAD_TRAINED_MODEL or not os.path.exists(MDLNAME):
     # plt.show()
     plt.clf()
 
-
     # Plot training accuracy
     plt.plot(history.history["accuracy"])
     plt.title("Training Accuracy")
@@ -229,7 +227,6 @@ if not RELOAD_TRAINED_MODEL or not os.path.exists(MDLNAME):
     plt.savefig(plot_eval_folder + "/training_accuracy.png")
     # plt.show()
     plt.clf()
-
 
     # Plot validation loss
     plt.plot(history.history["val_loss"])
@@ -260,7 +257,7 @@ if not RELOAD_TRAINED_MODEL or not os.path.exists(MDLNAME):
 
 else:
     print("Reloading model...")
-    #It needs to reload the custom DynamicUpsample layer as a custom_object
+    # It needs to reload the custom DynamicUpsample layer as a custom_object
     model = keras.models.load_model(MDLNAME, custom_objects={'DynamicUpsample': DynamicUpsample})
     print(model.summary())
 
@@ -269,11 +266,10 @@ else:
 # val_loss, val_accuracy, val_weighted_accuracy = model.evaluate(val_dataset)
 # test for different image sizes
 
-print("Evaluating model on images with different sizes")
-test_loss, test_accuracy, test_weighted_accuracy = model.evaluate(test_dataset_no_resize)
-print(f"Test loss (No resize): {test_loss}, Test accuracy: {test_accuracy}")
- #TODO problemi con mutiny pro
-
+# print("Evaluating model on images with different sizes")
+# test_loss, test_accuracy, test_weighted_accuracy = model.evaluate(test_dataset_no_resize)
+# print(f"Test loss (No resize): {test_loss}, Test accuracy: {test_accuracy}")
+# TODO problemi con mutiny pro
 
 
 print("Evaluating model on images with uniform size (resize)")
@@ -291,7 +287,8 @@ with open(os.path.join(model_folder, MDLNAME.split(".")[0] + "_history.pkl"), "r
     with open(os.path.join(model_folder, MDLNAME.split(".")[0] + "_performance_metrics.txt"), "w") as text_file:
         text_file.write(f"Epoch | Train loss | Train accuracy | Val loss | Val accuracy\n")
         for i in range(len(history["loss"])):
-            text_file.write(f"{i} | {history['loss'][i]} | {history['accuracy'][i]} | {history['val_loss'][i]} | {history['val_accuracy'][i]}\n")
+            text_file.write(
+                f"{i} | {history['loss'][i]} | {history['accuracy'][i]} | {history['val_loss'][i]} | {history['val_accuracy'][i]}\n")
         text_file.write(f"\n\n\nBest epoch: {np.argmin(history['val_loss'])},"
                         f" with train accuracy: {history['accuracy'][np.argmin(history['val_loss'])]}"
                         f" and validation accuracy: {history['val_accuracy'][np.argmin(history['val_loss'])]}\n")
@@ -299,4 +296,3 @@ with open(os.path.join(model_folder, MDLNAME.split(".")[0] + "_history.pkl"), "r
         text_file.write(f"\n\nTest loss (No resize): {test_loss}, Test accuracy: {test_accuracy}\n")
         text_file.write(f"Test loss: {test_loss}, Test accuracy: {test_accuracy}\n")
         text_file.write(f"\n\nTraining took {str(timedelta(seconds=time.time() - start_time))}\n")
-

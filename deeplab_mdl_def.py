@@ -155,3 +155,73 @@ def DeeplabV3Plus_mobilenet(num_classes,
     model_output = layers.Conv2D(num_classes, kernel_size=(1, 1), padding="same")(x)
     model = keras.Model(inputs=model_input, outputs=model_output)
     return model
+
+
+def DeeplabV3Plus_xception(num_classes,
+                  filters_conv1=24, filters_conv2=24,
+                  filters_spp=128, filters_final=128,
+                  dilated_conv_rates=[1, 4, 8, 16],
+                  trainable_xception=True):
+
+    #Defining inputs
+    model_input = keras.Input(shape=(None, None, 3))
+    #Preprocessing layer
+    preprocessed = keras.applications.xception.preprocess_input(model_input)
+    xception = keras.applications.Xception(weights="imagenet", include_top=False, input_tensor=preprocessed)
+    xception.trainable = trainable_xception
+
+    #Feature extraction
+    x = xception.get_layer("block14_sepconv2_act").output
+    input_b = xception.get_layer("block4_sepconv2_act").output
+    '''
+    The next section of the network applies global average pooling to obtain global context information,
+    followed by dimensionality reduction through convolution and normalization.
+    The dynamically upsampled features are then combined with the original feature map to enrich the feature representation.
+    '''
+    #Pooling operation to collapse the spatial dimensions of each feature map into a single value
+    x1 = layers.GlobalAveragePooling2D()(x)
+    x1 = layers.Reshape((1, 1, x.shape[-1]))(x1)
+    #Projecting the feature maps into a lower-dimensional space (of size filters_conv1).
+    x1 = layers.Conv2D(filters=filters_conv1, kernel_size=1, padding="same")(x1)
+    x1 = layers.BatchNormalization()(x1)
+    #Upsample to x size
+    x1 = DynamicUpsample()(x1, x)
+
+    '''
+    This section of the code implements Atrous Spatial Pyramid Pooling
+    '''
+    #Modification: as the rate increases, the kernel sizes increase too
+    pyramids = []
+    for rate in dilated_conv_rates:
+        if rate == 1:
+            pyramid = layers.Conv2D(filters=filters_spp, kernel_size=3, dilation_rate=rate, padding="same")(x)
+            pyramid = layers.BatchNormalization()(pyramid)
+            pyramids.append(pyramid)
+        else:
+            pyramid = layers.Conv2D(filters=filters_spp, kernel_size=3 + int(rate*(1/2)), dilation_rate=rate, padding="same")(x)
+            pyramid = layers.BatchNormalization()(pyramid)
+            pyramids.append(pyramid)
+
+    x = layers.Concatenate(axis=-1)([x1] + pyramids)
+    #Convolution to reduce the dimensionality and computational cost
+    x = layers.Conv2D(filters=filters_spp, kernel_size=1, padding="same")(x)
+    x = layers.BatchNormalization()(x)
+
+    #Adjusting the dimensions of lower level representations using convolutional layer
+    input_b = layers.Conv2D(filters=filters_conv2, kernel_size=1, padding="same")(input_b)
+    input_b = layers.BatchNormalization()(input_b)
+    #Upsample to x size
+    input_a = DynamicUpsample()(x, input_b)
+
+    #These convolutional layers refine the combined features before the final classification
+    x = layers.Concatenate(axis=-1)([input_a, input_b])
+    x = layers.Conv2D(filters=filters_final, kernel_size=3, padding="same")(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Conv2D(filters=filters_final, kernel_size=3, padding="same")(x)
+    x = layers.BatchNormalization()(x)
+    #Final upsampling ensures that the final output matches the spatial dimensions of the input image
+    x = DynamicUpsample()(x, model_input)
+    #Classification layer
+    model_output = layers.Conv2D(num_classes, kernel_size=(1, 1), padding="same")(x)
+    model = keras.Model(inputs=model_input, outputs=model_output)
+    return model
